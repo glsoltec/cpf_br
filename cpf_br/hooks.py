@@ -13,7 +13,7 @@ app_version = "0.0.1"
 # ------------------------------------------------------------
 fixtures = [
     {
-        "dt": "Custom Field",
+        "doctype": "Custom Field",
         "filters": [
             ["name", "in", [
                 "User-cpf_br",
@@ -30,6 +30,24 @@ doctype_js = {
     "User": "public/js/user_cpf.js",
     "LMS Course Enrollment": "public/js/lms_enrollment_cpf.js",
 }
+
+# ------------------------------------------------------------
+# Garante criação dos campos na instalação e em cada migrate
+# ------------------------------------------------------------
+after_install = "cpf_br.setup.after_install"
+after_migrate = "cpf_br.setup.after_migrate"
+
+# ------------------------------------------------------------
+# Override das APIs de perfil do LMS para incluir CPF
+# ------------------------------------------------------------
+override_whitelisted_methods = {
+    "lms.lms.api.update_profile":      "cpf_br.lms_api.update_profile",
+    "lms.lms.api.get_profile_details": "cpf_br.lms_api.get_profile_details",
+}
+
+# JS injetado nas páginas web do LMS (adiciona campo CPF ao modal Edit Profile)
+# Caminho resolvido após `bench build --app cpf_br`
+web_include_js = ["/assets/cpf_br/js/lms_profile_cpf.js"]
 
 # ------------------------------------------------------------
 # Hooks de servidor para validação do CPF antes de salvar

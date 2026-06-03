@@ -11,7 +11,7 @@ import frappe
 
 def execute():
     fixtures_dir = os.path.join(
-        os.path.dirname(__file__), "..", "cpf_br", "custom_fields"
+        os.path.dirname(__file__), "..", "custom_fields"
     )
 
     for filename in ("user_cpf.json", "lms_enrollment_cpf.json"):
