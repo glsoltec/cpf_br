@@ -1,258 +1,63 @@
-app_name = "cpf_br"
-app_title = "cpf_br"
-app_publisher = "Pascoal Freitas"
+app_name        = "cpf_br"
+app_title       = "cpf_br"
+app_publisher   = "Pascoal Freitas"
 app_description = "Campo CPF"
-app_email = "pascoal.freitas@glsoltec.com.br"
-app_license = "mit"
+app_email       = "pascoal.freitas@glsoltec.com.br"
+app_license     = "mit"
 
-# Apps
-# ------------------
+# ─────────────────────────────────────────────────────────────────────────────
+# Criação automática dos Custom Fields na instalação e em cada bench migrate
+# ─────────────────────────────────────────────────────────────────────────────
+after_install = "cpf_br.setup.after_install"
+after_migrate = "cpf_br.setup.after_migrate"
 
-# required_apps = []
+# ─────────────────────────────────────────────────────────────────────────────
+# Fixtures — garante que os Custom Fields sejam versionados e reimportados
+# automaticamente a cada `bench migrate` (persiste após atualizações do ERPNext)
+# ─────────────────────────────────────────────────────────────────────────────
+fixtures = [
+    {
+        "doctype": "Custom Field",
+        "filters": [
+            ["name", "in", [
+                "User-cpf_br",
+                "LMS Course Enrollment-cpf_br",
+            ]]
+        ],
+    }
+]
 
-# Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "cpf_br",
-# 		"logo": "/assets/cpf_br/logo.png",
-# 		"title": "cpf_br",
-# 		"route": "/cpf_br",
-# 		"has_permission": "cpf_br.api.permission.has_app_permission"
-# 	}
-# ]
+# ─────────────────────────────────────────────────────────────────────────────
+# Client Scripts — formulários do Desk (admin)
+# Valida e formata CPF em tempo real nos formulários do ERPNext
+# ─────────────────────────────────────────────────────────────────────────────
+doctype_js = {
+    "User":                  "public/js/user_cpf.js",
+    "LMS Course Enrollment": "public/js/lms_enrollment_cpf.js",
+}
 
-# Includes in <head>
-# ------------------
+# ─────────────────────────────────────────────────────────────────────────────
+# Server-side hooks — validação e normalização do CPF ao salvar
+# ─────────────────────────────────────────────────────────────────────────────
+doc_events = {
+    "User": {
+        "validate": "cpf_br.cpf_br.validators.validate_cpf_user",
+    },
+    "LMS Course Enrollment": {
+        "validate": "cpf_br.cpf_br.validators.validate_cpf_lms",
+    },
+}
 
-# include js, css files in header of desk.html
-# app_include_css = "/assets/cpf_br/css/cpf_br.css"
-# app_include_js = "/assets/cpf_br/js/cpf_br.js"
+# ─────────────────────────────────────────────────────────────────────────────
+# Override das APIs do LMS — permite ler e salvar cpf_br pelo perfil web
+# ─────────────────────────────────────────────────────────────────────────────
+override_whitelisted_methods = {
+    "lms.lms.api.update_profile":      "cpf_br.lms_api.update_profile",
+    "lms.lms.api.get_profile_details": "cpf_br.lms_api.get_profile_details",
+}
 
-# include js, css files in header of web template
-# web_include_css = "/assets/cpf_br/css/cpf_br.css"
-# web_include_js = "/assets/cpf_br/js/cpf_br.js"
-
-# include custom scss in every website theme (without file extension ".scss")
-# website_theme_scss = "cpf_br/public/scss/website"
-
-# include js, css files in header of web form
-# webform_include_js = {"doctype": "public/js/doctype.js"}
-# webform_include_css = {"doctype": "public/css/doctype.css"}
-
-# include js in page
-# page_js = {"page" : "public/js/file.js"}
-
-# include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
-# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
-# doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
-
-# Svg Icons
-# ------------------
-# include app icons in desk
-# app_include_icons = "cpf_br/public/icons.svg"
-
-# Home Pages
-# ----------
-
-# application home page (will override Website Settings)
-# home_page = "login"
-
-# website user home page (by Role)
-# role_home_page = {
-# 	"Role": "home_page"
-# }
-
-# Generators
-# ----------
-
-# automatically create page for each record of this doctype
-# website_generators = ["Web Page"]
-
-# automatically load and sync documents of this doctype from downstream apps
-# importable_doctypes = [doctype_1]
-
-# Jinja
-# ----------
-
-# add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "cpf_br.utils.jinja_methods",
-# 	"filters": "cpf_br.utils.jinja_filters"
-# }
-
-# Installation
-# ------------
-
-# before_install = "cpf_br.install.before_install"
-# after_install = "cpf_br.install.after_install"
-
-# Uninstallation
-# ------------
-
-# before_uninstall = "cpf_br.uninstall.before_uninstall"
-# after_uninstall = "cpf_br.uninstall.after_uninstall"
-
-# Integration Setup
-# ------------------
-# To set up dependencies/integrations with other apps
-# Name of the app being installed is passed as an argument
-
-# before_app_install = "cpf_br.utils.before_app_install"
-# after_app_install = "cpf_br.utils.after_app_install"
-
-# Integration Cleanup
-# -------------------
-# To clean up dependencies/integrations with other apps
-# Name of the app being uninstalled is passed as an argument
-
-# before_app_uninstall = "cpf_br.utils.before_app_uninstall"
-# after_app_uninstall = "cpf_br.utils.after_app_uninstall"
-
-# Build
-# ------------------
-# To hook into the build process
-
-# after_build = "cpf_br.build.after_build"
-
-# Desk Notifications
-# ------------------
-# See frappe.core.notifications.get_notification_config
-
-# notification_config = "cpf_br.notifications.get_notification_config"
-
-# Permissions
-# -----------
-# Permissions evaluated in scripted ways
-
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
-
-# Document Events
-# ---------------
-# Hook on document methods and events
-
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
-
-# Scheduled Tasks
-# ---------------
-
-# scheduler_events = {
-# 	"all": [
-# 		"cpf_br.tasks.all"
-# 	],
-# 	"daily": [
-# 		"cpf_br.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"cpf_br.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"cpf_br.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"cpf_br.tasks.monthly"
-# 	],
-# }
-
-# Testing
-# -------
-
-# before_tests = "cpf_br.install.before_tests"
-
-# Extend DocType Class
-# ------------------------------
-#
-# Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "cpf_br.custom.task.CustomTaskMixin"
-# }
-
-# Overriding Methods
-# ------------------------------
-#
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "cpf_br.event.get_events"
-# }
-#
-# each overriding function accepts a `data` argument;
-# generated from the base implementation of the doctype dashboard,
-# along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "cpf_br.task.get_dashboard_data"
-# }
-
-# exempt linked doctypes from being automatically cancelled
-#
-# auto_cancel_exempted_doctypes = ["Auto Repeat"]
-
-# Ignore links to specified DocTypes when deleting documents
-# -----------------------------------------------------------
-
-# ignore_links_on_delete = ["Communication", "ToDo"]
-
-# Request Events
-# ----------------
-# before_request = ["cpf_br.utils.before_request"]
-# after_request = ["cpf_br.utils.after_request"]
-
-# Job Events
-# ----------
-# before_job = ["cpf_br.utils.before_job"]
-# after_job = ["cpf_br.utils.after_job"]
-
-# User Data Protection
-# --------------------
-
-# user_data_fields = [
-# 	{
-# 		"doctype": "{doctype_1}",
-# 		"filter_by": "{filter_by}",
-# 		"redact_fields": ["{field_1}", "{field_2}"],
-# 		"partial": 1,
-# 	},
-# 	{
-# 		"doctype": "{doctype_2}",
-# 		"filter_by": "{filter_by}",
-# 		"partial": 1,
-# 	},
-# 	{
-# 		"doctype": "{doctype_3}",
-# 		"strict": False,
-# 	},
-# 	{
-# 		"doctype": "{doctype_4}"
-# 	}
-# ]
-
-# Authentication and authorization
-# --------------------------------
-
-# auth_hooks = [
-# 	"cpf_br.auth.validate"
-# ]
-
-# Automatically update python controller files with type annotations for this app.
-# export_python_type_annotations = True
-
-# default_log_clearing_doctypes = {
-# 	"Logging DocType Name": 30  # days to retain logs
-# }
-
-# Translation
-# ------------
-# List of apps whose translatable strings should be excluded from this app's translations.
-# ignore_translatable_strings_from = []
-
+# ─────────────────────────────────────────────────────────────────────────────
+# JS injetado nas páginas web (LMS roda como website)
+# Injeta o campo CPF no modal "Edit Profile" via MutationObserver + intercept
+# ─────────────────────────────────────────────────────────────────────────────
+web_include_js = ["/assets/cpf_br/js/lms_profile_cpf.js"]
