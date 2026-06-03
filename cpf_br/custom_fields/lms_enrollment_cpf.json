@@ -1,0 +1,19 @@
+[
+  {
+    "doctype": "Custom Field",
+    "name": "LMS Course Enrollment-cpf_br",
+    "dt": "LMS Course Enrollment",
+    "fieldname": "cpf_br",
+    "label": "CPF",
+    "fieldtype": "Data",
+    "insert_after": "member_name",
+    "description": "Preenchido automaticamente a partir do perfil do usuário",
+    "placeholder": "000.000.000-00",
+    "read_only": 0,
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "bold": 0,
+    "translatable": 0,
+    "permlevel": 0
+  }
+]
