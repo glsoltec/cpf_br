@@ -1,138 +1,144 @@
 /**
  * cpf_br — Injeta campo CPF no modal "Edit Profile" do Frappe LMS.
  *
- * Estratégia:
- *  1. Intercepta frappe.call globalmente para:
- *     - update_profile   → injeta cpf_br nos args antes de enviar ao servidor
- *     - get_profile_details → captura o retorno e preenche o input CPF
- *  2. MutationObserver detecta quando o modal abre e adiciona o campo CPF
- *     após "Twitter ID" no lado esquerdo do formulário.
- *
- * Não modifica nenhum arquivo do app LMS.
+ * Estratégias combinadas:
+ *  1. Intercepta frappe.call globalmente:
+ *     - update_profile   → adiciona cpf_br nos args antes de enviar
+ *     - get_profile_details → preenche o input após retorno
+ *  2. MutationObserver + retry com delay para aguardar Vue renderizar
+ *  3. Polling periódico como fallback final
  */
 
 (function () {
     "use strict";
 
-    const INPUT_ID        = "cpf_br_field";
-    const ERRO_ID         = "cpf_br_erro";
-    const METHOD_GET      = "lms.lms.api.get_profile_details";
-    const METHOD_SAVE     = "lms.lms.api.update_profile";
+    /* ── Configuração ─────────────────────────────────────────────── */
+    const INPUT_ID   = "cpf_br_lms_input";
+    const ERRO_ID    = "cpf_br_lms_erro";
+    const METHOD_GET = "lms.lms.api.get_profile_details";
+    const METHOD_UPD = "lms.lms.api.update_profile";
 
-    /* ────────────────────────────────────────────────────────────────────
-       1. Intercept frappe.call  — núcleo da integração com o Vue
-    ──────────────────────────────────────────────────────────────────── */
-
-    function instalarIntercept() {
-        if (window._cpfBrInterceptInstalled) return;
-        window._cpfBrInterceptInstalled = true;
-
-        const _originalCall = frappe.call.bind(frappe);
-
-        frappe.call = function (optsOrMethod, ...rest) {
-            // Normaliza: frappe.call pode receber string ou objeto
-            let opts = (typeof optsOrMethod === "string")
-                ? { method: optsOrMethod, args: rest[0] || {}, callback: rest[1] }
-                : Object.assign({}, optsOrMethod);
-
-            const method = opts.method || "";
-
-            /* ── update_profile: adiciona cpf_br nos args ── */
-            if (method === METHOD_SAVE) {
-                opts.args = opts.args || {};
-                opts.args.cpf_br = _lerInputCPF();
-
-                const _callbackOriginal = opts.callback;
-                opts.callback = function (r) {
-                    if (_callbackOriginal) _callbackOriginal(r);
-                };
-            }
-
-            /* ── get_profile_details: preenche o input após retorno ── */
-            if (method === METHOD_GET) {
-                const _callbackOriginal = opts.callback;
-                opts.callback = function (r) {
-                    if (_callbackOriginal) _callbackOriginal(r);
-                    if (r && r.message && r.message.cpf_br) {
-                        _preencherInputCPF(r.message.cpf_br);
-                    }
-                };
-            }
-
-            return _originalCall(opts);
-        };
-    }
-
-    /* ────────────────────────────────────────────────────────────────────
-       2. Helpers de input CPF
-    ──────────────────────────────────────────────────────────────────── */
-
-    function _lerInputCPF() {
-        return (document.getElementById(INPUT_ID)?.value || "").trim();
-    }
-
-    function _preencherInputCPF(valor) {
-        const el = document.getElementById(INPUT_ID);
-        if (el && valor) el.value = valor;
-    }
-
-    function _mascara(valor) {
-        return valor
-            .replace(/\D/g, "")
-            .slice(0, 11)
+    /* ── Helpers CPF ─────────────────────────────────────────────── */
+    function mascara(v) {
+        return v.replace(/\D/g, "").slice(0, 11)
             .replace(/(\d{3})(\d)/, "$1.$2")
             .replace(/(\d{3})(\d)/, "$1.$2")
             .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
     }
 
-    function _cpfValido(cpf) {
+    function cpfValido(cpf) {
         cpf = cpf.replace(/\D/g, "");
         if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
-
         let s = 0, d;
         for (let i = 0; i < 9; i++) s += +cpf[i] * (10 - i);
         d = (s * 10) % 11; if (d >= 10) d = 0;
         if (d !== +cpf[9]) return false;
-
         s = 0;
         for (let i = 0; i < 10; i++) s += +cpf[i] * (11 - i);
         d = (s * 10) % 11; if (d >= 10) d = 0;
         return d === +cpf[10];
     }
 
-    /* ────────────────────────────────────────────────────────────────────
-       3. Criar campo CPF dentro do modal
-    ──────────────────────────────────────────────────────────────────── */
+    function lerCPF() {
+        return (document.getElementById(INPUT_ID)?.value || "").trim();
+    }
 
-    function _criarCampoCPF(modal) {
-        if (modal.dataset.cpfInjected) return;
-        modal.dataset.cpfInjected = "true";
+    function preencherCPF(val) {
+        const el = document.getElementById(INPUT_ID);
+        if (el && val) el.value = val;
+    }
 
-        /* Localiza o campo "Twitter ID" — âncora para inserir depois */
-        const twitterLabel = _encontrarLabel(modal, ["twitter", "Twitter"]);
-        const refEl = twitterLabel
-            ? (twitterLabel.closest(".form-group, .field-wrapper, [class*='field']") || twitterLabel.parentElement)
-            : null;
+    /* ── Detecção do modal ───────────────────────────────────────── */
 
-        const wrapper = document.createElement("div");
-        wrapper.id = "cpf_br_wrapper";
-        // Copia o estilo do container irmão para consistência visual
-        if (refEl) {
-            wrapper.className = refEl.className;
-        } else {
-            wrapper.style.cssText = "margin-top:1rem;";
+    /**
+     * Retorna true se o nó (ou seus filhos) parecer o modal Edit Profile.
+     * Estratégia multi-critério para cobrir diferentes versões do LMS.
+     */
+    function ehModalEditProfile(node) {
+        if (!node || node.nodeType !== 1) return false;
+
+        // Critério 1: tem um heading com "Edit Profile" ou "Editar Perfil"
+        const headings = node.querySelectorAll(
+            "h1,h2,h3,h4,h5,h6,.modal-title,.dialog-title,[class*='title'],[class*='heading']"
+        );
+        for (const h of headings) {
+            const txt = (h.textContent || "").toLowerCase().trim();
+            if (txt === "edit profile" || txt === "editar perfil") return true;
         }
 
+        // Critério 2: tem inputs de first_name E last_name (campos obrigatórios do modal)
+        const temNome = !!(
+            node.querySelector("input[name='first_name']") ||
+            node.querySelector("input[id*='first_name']") ||
+            node.querySelector("input[placeholder='Nome'], input[placeholder='First Name']")
+        );
+        const temSobrenome = !!(
+            node.querySelector("input[name='last_name']") ||
+            node.querySelector("input[id*='last_name']") ||
+            node.querySelector("input[placeholder='Sobrenome'], input[placeholder='Last Name']")
+        );
+        if (temNome && temSobrenome) return true;
+
+        // Critério 3: busca nos filhos (caso o observer capturar um wrapper)
+        const filhos = node.querySelectorAll("[role='dialog'],[class*='modal'],[class*='dialog']");
+        for (const filho of filhos) {
+            if (ehModalEditProfile(filho)) return true;
+        }
+
+        return false;
+    }
+
+    /* ── Criação do campo CPF no modal ───────────────────────────── */
+    function injetarCPF(modal) {
+        // Já injetado?
+        if (modal.dataset.cpfInjetado || document.getElementById(INPUT_ID)) return;
+        modal.dataset.cpfInjetado = "1";
+
+        // Encontra o último input do lado esquerdo para inserir após ele
+        // Tenta Twitter primeiro, depois pega o último input disponível
+        const todosInputs = Array.from(
+            modal.querySelectorAll("input[type='text'], input:not([type])")
+        ).filter(el => el.offsetParent !== null); // apenas visíveis
+
+        if (todosInputs.length === 0) {
+            // Vue ainda não renderizou — tenta novamente em 300ms
+            setTimeout(() => {
+                delete modal.dataset.cpfInjetado;
+                injetarCPF(modal);
+            }, 300);
+            return;
+        }
+
+        // Prefere o input próximo a um label "Twitter"
+        let ancora = null;
+        const labels = modal.querySelectorAll("label");
+        for (const lbl of labels) {
+            if (/twitter/i.test(lbl.textContent)) {
+                // Pega o input dentro ou após o label
+                const parent = lbl.closest("div,section,li") || lbl.parentElement;
+                const input = parent?.querySelector("input") || todosInputs[todosInputs.length - 1];
+                ancora = parent || input?.closest("div") || input?.parentElement;
+                break;
+            }
+        }
+        // Fallback: container do último input visível
+        if (!ancora) {
+            const ultimo = todosInputs[todosInputs.length - 1];
+            ancora = ultimo?.closest(".form-group,.mb-3,li,[class*='field'],[class*='input-wrap']")
+                     || ultimo?.parentElement;
+        }
+
+        // Copia a classe do container irmão para manter o estilo
+        const classeIrmao = ancora?.className || "";
+
+        const wrapper = document.createElement("div");
+        wrapper.className = classeIrmao || "mb-3";
+        wrapper.style.marginTop = "0.75rem";
         wrapper.innerHTML = `
             <label
                 for="${INPUT_ID}"
-                style="
-                    display:block;
-                    font-size:0.875rem;
-                    font-weight:500;
-                    color:#1f272b;
-                    margin-bottom:0.3rem;
-                ">
+                style="display:block;font-size:.875rem;font-weight:500;
+                       color:var(--text-color,#1f272b);margin-bottom:.25rem;">
                 CPF
             </label>
             <input
@@ -141,134 +147,137 @@
                 placeholder="000.000.000-00"
                 maxlength="14"
                 autocomplete="off"
-                style="
-                    width:100%;
-                    padding:0.5rem 0.75rem;
-                    border:1px solid #d1d5db;
-                    border-radius:0.375rem;
-                    font-size:0.875rem;
-                    color:#1f272b;
-                    background:#fff;
-                    box-sizing:border-box;
-                    transition:border-color .15s;
-                "
+                style="width:100%;padding:.5rem .75rem;
+                       border:1px solid var(--border-color,#d1d5db);
+                       border-radius:.375rem;font-size:.875rem;
+                       color:var(--text-color,#1f272b);
+                       background:var(--bg-color,#fff);
+                       box-sizing:border-box;"
             />
-            <p
-                id="${ERRO_ID}"
-                style="
-                    display:none;
-                    color:#ef4444;
-                    font-size:0.75rem;
-                    margin-top:0.25rem;
-                    margin-bottom:0;
-                ">
+            <small id="${ERRO_ID}"
+                   style="display:none;color:#ef4444;font-size:.75rem;margin-top:.2rem;">
                 CPF inválido — verifique os dígitos.
-            </p>
-        `;
+            </small>`;
 
-        /* Insere após Twitter ou ao final do form */
-        if (refEl) {
-            refEl.after(wrapper);
-        } else {
-            const form = modal.querySelector("form, .form-wrapper, .edit-profile-form");
-            (form || modal).appendChild(wrapper);
+        ancora ? ancora.after(wrapper) : modal.appendChild(wrapper);
+
+        // Máscara + validação visual
+        const inp  = document.getElementById(INPUT_ID);
+        const erro = document.getElementById(ERRO_ID);
+
+        inp.addEventListener("input",  () => { inp.value = mascara(inp.value); erro.style.display = "none"; });
+        inp.addEventListener("blur",   () => {
+            const raw = inp.value.replace(/\D/g, "");
+            if (raw && !cpfValido(raw)) { erro.style.display = "block"; }
+        });
+
+        // Carrega CPF salvo via API
+        const username = frappe?.session?.user_info?.username || frappe?.boot?.user_info?.name;
+        if (username) {
+            frappe.call({
+                method: METHOD_GET,
+                args: { username },
+                callback: r => { if (r?.message?.cpf_br) preencherCPF(r.message.cpf_br); }
+            });
         }
-
-        /* Máscara e validação visual */
-        const input = document.getElementById(INPUT_ID);
-        const erro  = document.getElementById(ERRO_ID);
-
-        input.addEventListener("focus", () => {
-            input.style.borderColor = "#6366f1";
-            input.style.outline = "none";
-        });
-        input.addEventListener("blur", () => {
-            input.style.borderColor = "#d1d5db";
-            const raw = input.value.replace(/\D/g, "");
-            if (raw && !_cpfValido(raw)) {
-                erro.style.display = "block";
-                input.style.borderColor = "#ef4444";
-            } else {
-                erro.style.display = "none";
-            }
-        });
-        input.addEventListener("input", () => {
-            input.value = _mascara(input.value);
-            erro.style.display = "none";
-            input.style.borderColor = "#d1d5db";
-        });
     }
 
-    function _encontrarLabel(container, termos) {
-        const labels = container.querySelectorAll("label");
-        for (const lbl of labels) {
-            if (termos.some(t => lbl.textContent.includes(t))) return lbl;
+    /* ── MutationObserver ────────────────────────────────────────── */
+    let tentativasModal = 0;
+    const MAX_TENTATIVAS = 5;
+
+    function processarNo(node) {
+        if (!node || node.nodeType !== 1) return;
+
+        // Tenta o nó diretamente
+        if (ehModalEditProfile(node)) { injetarCPF(node); return; }
+
+        // Tenta filhos imediatos que pareçam ser dialogs/modais
+        const candidatos = node.querySelectorAll?.(
+            "[role='dialog'],[class*='modal-'],[class*='dialog-'],[class*='edit-profile']"
+        ) || [];
+        for (const c of candidatos) {
+            if (ehModalEditProfile(c)) { injetarCPF(c); return; }
         }
-        return null;
     }
 
-    /* ────────────────────────────────────────────────────────────────────
-       4. MutationObserver — detecta abertura do modal
-    ──────────────────────────────────────────────────────────────────── */
-
-    function _ehModalEditProfile(node) {
-        if (node.nodeType !== 1) return false;
-
-        // O modal contém um heading com "Edit Profile" / "Editar Perfil"
-        const headings = node.querySelectorAll?.(
-            "h2, h3, h4, h5, .modal-title, [class*='title'], [class*='heading']"
-        );
-        if (headings) {
-            for (const h of headings) {
-                const txt = (h.textContent || "").toLowerCase();
-                if (txt.includes("edit profile") || txt.includes("editar perfil")) {
-                    return true;
-                }
-            }
-        }
-
-        // Fallback: tem os campos Nome + Sobrenome (inputs identificáveis)
-        const hasNameFields =
-            node.querySelector?.("input[name='first_name'], input[placeholder*='Nome'], input[placeholder*='First']") &&
-            node.querySelector?.("input[name='last_name'],  input[placeholder*='Sobrenome'], input[placeholder*='Last']");
-
-        return !!hasNameFields;
-    }
-
-    const observer = new MutationObserver(function (mutations) {
-        for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (node.nodeType !== 1) continue;
-
-                // Nó diretamente é o modal
-                if (_ehModalEditProfile(node)) {
-                    _criarCampoCPF(node);
-                    return;
-                }
-
-                // Nó contém o modal como filho
-                const modal = node.querySelector?.(
-                    "[role='dialog'], .modal, .dialog-wrapper, [class*='modal'], [class*='dialog']"
-                );
-                if (modal && _ehModalEditProfile(modal)) {
-                    _criarCampoCPF(modal);
-                    return;
-                }
+    const observer = new MutationObserver(mutations => {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                // Aguarda 200ms para o Vue terminar de renderizar os inputs
+                setTimeout(() => processarNo(node), 200);
             }
         }
     });
 
-    /* ────────────────────────────────────────────────────────────────────
-       5. Inicialização — aguarda frappe estar disponível
-    ──────────────────────────────────────────────────────────────────── */
+    /* ── Polling fallback — garante injeção mesmo se observer falhar ── */
+    function polling() {
+        if (document.getElementById(INPUT_ID)) return; // já injetado
 
+        // Procura qualquer elemento visível que pareça o modal aberto
+        const candidatos = document.querySelectorAll(
+            "[role='dialog'],[class*='modal-body'],[class*='dialog-body'],[class*='edit-profile']"
+        );
+        for (const c of candidatos) {
+            if (c.offsetParent !== null && ehModalEditProfile(c)) {
+                injetarCPF(c);
+                tentativasModal = 0;
+                return;
+            }
+        }
+
+        // O modal sumiu — reseta estado para próxima abertura
+        tentativasModal++;
+        if (tentativasModal > MAX_TENTATIVAS) tentativasModal = 0;
+    }
+
+    /* ── Intercept frappe.call ───────────────────────────────────── */
+    function instalarIntercept() {
+        if (window.__cpfBrInterceptOk) return;
+        window.__cpfBrInterceptOk = true;
+
+        const _orig = frappe.call.bind(frappe);
+
+        frappe.call = function (opts, ...resto) {
+            if (typeof opts === "string") {
+                opts = { method: opts, args: resto[0] || {}, callback: resto[1] };
+            } else {
+                opts = { ...opts };
+            }
+
+            /* update_profile → injeta cpf_br nos args */
+            if ((opts.method || "").includes("update_profile")) {
+                opts.args = opts.args || {};
+                opts.args.cpf_br = lerCPF();
+            }
+
+            /* get_profile_details → preenche o input com o CPF retornado */
+            if ((opts.method || "").includes("get_profile_details")) {
+                const _cb = opts.callback;
+                opts.callback = function (r) {
+                    if (_cb) _cb(r);
+                    if (r?.message?.cpf_br) {
+                        preencherCPF(r.message.cpf_br);
+                    }
+                };
+            }
+
+            return _orig(opts);
+        };
+    }
+
+    /* ── Inicialização ───────────────────────────────────────────── */
     function init() {
         if (typeof frappe === "undefined" || typeof frappe.call !== "function") {
-            setTimeout(init, 100);
+            setTimeout(init, 150);
             return;
         }
+
         instalarIntercept();
         observer.observe(document.body, { childList: true, subtree: true });
+
+        // Polling a cada 800ms — captura casos em que o observer não dispara
+        setInterval(polling, 800);
     }
 
     if (document.readyState === "loading") {
