@@ -1,13 +1,18 @@
 """
 Funções executadas após instalação e migração do app cpf_br.
+
 Garante que os Custom Fields existam independentemente dos fixtures.
+O campo LMS Course Enrollment só é criado se o DocType existir no banco
+(o app lms pode não estar instalado ou pode não ter sincronizado ainda).
 """
 
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 
-CUSTOM_FIELDS = {
+# ─── Definição dos campos ─────────────────────────────────────────────────────
+
+CAMPO_USER = {
     "User": [
         {
             "fieldname": "cpf_br",
@@ -24,7 +29,10 @@ CUSTOM_FIELDS = {
             "translatable": 0,
             "permlevel": 0,
         }
-    ],
+    ]
+}
+
+CAMPO_LMS = {
     "LMS Course Enrollment": [
         {
             "fieldname": "cpf_br",
@@ -39,9 +47,11 @@ CUSTOM_FIELDS = {
             "translatable": 0,
             "permlevel": 0,
         }
-    ],
+    ]
 }
 
+
+# ─── Hooks ────────────────────────────────────────────────────────────────────
 
 def after_install():
     """Executado uma vez na instalação do app."""
@@ -53,7 +63,29 @@ def after_migrate():
     _criar_campos()
 
 
+# ─── Lógica interna ───────────────────────────────────────────────────────────
+
 def _criar_campos():
-    create_custom_fields(CUSTOM_FIELDS, ignore_validate=True)
+    """
+    Cria os Custom Fields de CPF.
+
+    - Campo User.cpf_br → sempre criado (DocType nativo do Frappe).
+    - Campo LMS Course Enrollment.cpf_br → só criado se o DocType existir
+      no banco. Evita LinkValidationError quando o app lms ainda não
+      sincronizou seus DocTypes (ex.: primeira instalação em site vazio).
+    """
+    # 1. Campo no User (sempre disponível)
+    create_custom_fields(CAMPO_USER, ignore_validate=True)
     frappe.db.commit()
-    print("cpf_br: Custom Fields verificados/criados com sucesso.")
+    print("cpf_br: Custom Field User.cpf_br verificado/criado.")
+
+    # 2. Campo no LMS — só se o DocType existir
+    if frappe.db.exists("DocType", "LMS Course Enrollment"):
+        create_custom_fields(CAMPO_LMS, ignore_validate=True)
+        frappe.db.commit()
+        print("cpf_br: Custom Field LMS Course Enrollment.cpf_br verificado/criado.")
+    else:
+        print(
+            "cpf_br: DocType 'LMS Course Enrollment' não encontrado — "
+            "campo será criado no próximo `bench migrate` após instalar o app lms."
+        )
