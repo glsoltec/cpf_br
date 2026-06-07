@@ -57,7 +57,14 @@ override_whitelisted_methods = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JS injetado nas páginas web (LMS roda como website)
-# Injeta o campo CPF no modal "Edit Profile" via MutationObserver + intercept
+# JS injetado nas páginas web — DUAS estratégias simultâneas
+#
+# 1. web_include_js — funciona se o template estender base.html (Frappe padrão)
+# 2. update_website_context — adiciona programaticamente ao contexto web
+#    (mesma finalidade, mas via Python; cobre casos onde hooks.py não é lido)
+# 3. setup._injetar_script_lms() — injeta direto em _lms.html no after_migrate
+#    (método definitivo: o template do LMS SPA não estende base.html)
 # ─────────────────────────────────────────────────────────────────────────────
 web_include_js = ["/assets/cpf_br/js/lms_profile_cpf.js"]
+
+update_website_context = "cpf_br.website_utils.inject_cpf_js"
