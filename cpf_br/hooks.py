@@ -1,5 +1,5 @@
 app_name        = "cpf_br"
-app_title       = "cpf_br"
+app_title       = "Campo CPF"
 app_publisher   = "Pascoal Freitas"
 app_description = "Campo CPF"
 app_email       = "pascoal.freitas@glsoltec.com.br"
