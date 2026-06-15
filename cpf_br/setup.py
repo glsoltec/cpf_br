@@ -74,7 +74,8 @@ CAMPO_LMS = {
 
 # Marcador único que garante idempotência (não injeta duas vezes)
 _CPF_MARKER = "<!-- cpf_br:lms_profile_cpf -->"
-_CPF_SCRIPT  = '<script src="/assets/cpf_br/js/lms_profile_cpf.js"></script>'
+_CPF_SCRIPT  = '''<script src="/assets/cpf_br/js/cpf_utils.js"></script>
+<script src="/assets/cpf_br/js/lms_profile_cpf.js"></script>'''
 
 
 # ─── Hooks ────────────────────────────────────────────────────────────────────
