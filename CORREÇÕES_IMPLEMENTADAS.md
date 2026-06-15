@@ -268,7 +268,7 @@ bench pip install portalocker>=2.7.0
 - [ ] Executar `bench migrate` (ativa CRIT-1 file locking)
 - [ ] Verificar logs: `"Script CPF injetado com sucesso"`
 - [ ] Testar em desktop (User.cpf_br)
-- [ ] Testar em LMS (LMS Course Enrollment)
+- [ ] Testar em LMS (LMS Enrollment)
 - [ ] Testar em modal Edit Profile do LMS
 - [ ] Rodar testes: `bench execute cpf_br.tests.test_validators`
 - [ ] Verificar performance (Chrome DevTools)

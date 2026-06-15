@@ -1,10 +1,10 @@
 /**
- * cpf_br — LMS Course Enrollment client script
+ * cpf_br — LMS Enrollment client script
  * Auto-preenche o campo CPF a partir do perfil do usuário ao selecionar o membro.
  * [IMP-1 FIX] Usa CpfUtils centralizado ao invés de lógica duplicada
  */
 
-frappe.ui.form.on("LMS Course Enrollment", {
+frappe.ui.form.on("LMS Enrollment", {
 	member: function (frm) {
 		if (!frm.doc.member) return;
 

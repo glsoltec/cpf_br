@@ -4,7 +4,7 @@ Patch executado na instalação/migração do app cpf_br.
 Garante que os Custom Fields sejam criados mesmo se o fixture
 não rodar automaticamente (ex.: bench migrate em site existente).
 
-O campo LMS Course Enrollment é ignorado silenciosamente se o
+O campo LMS Enrollment é ignorado silenciosamente se o
 DocType ainda não existir (app lms não instalado).
 """
 

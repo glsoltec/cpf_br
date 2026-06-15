@@ -1,8 +1,8 @@
 [
   {
     "doctype": "Custom Field",
-    "name": "LMS Course Enrollment-cpf_br",
-    "dt": "LMS Course Enrollment",
+    "name": "LMS Enrollment-cpf_br",
+    "dt": "LMS Enrollment",
     "fieldname": "cpf_br",
     "label": "CPF",
     "fieldtype": "Data",

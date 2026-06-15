@@ -1,6 +1,6 @@
 """
 Validadores de CPF para hooks doc_events.
-Chamado em User.validate e LMS Course Enrollment.validate.
+Chamado em User.validate e LMS Enrollment.validate.
 """
 
 import re
@@ -58,7 +58,7 @@ def validate_cpf_user(doc, method=None):
 
 
 def validate_cpf_lms(doc, method=None):
-    """Hook: LMS Course Enrollment.validate"""
+    """Hook: LMS Enrollment.validate"""
     # Obtém CPF do usuário vinculado se não preenchido na matrícula
     cpf = (doc.get("cpf_br") or "").strip()
 

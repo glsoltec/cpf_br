@@ -435,7 +435,7 @@ bench pip install portalocker>=2.7.0
 - [ ] Todos os testes passam (`test_validators.py`)
 - [ ] Setup funciona com file locking (portalocker)
 - [ ] CPF valida corretamente em Desktop
-- [ ] CPF valida em LMS Course Enrollment
+- [ ] CPF valida em LMS Enrollment
 - [ ] CPF aparece em Edit Profile modal
 - [ ] Bundle size reduzido (~2KB)
 - [ ] Nenhum erro em `bench log`

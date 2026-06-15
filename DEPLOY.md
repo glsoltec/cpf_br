@@ -41,7 +41,7 @@ bench log -n 20 | grep "cpf_br"
 **Saída Esperada:**
 ```
 cpf_br: Custom Field User.cpf_br verificado/criado.
-cpf_br: Custom Field LMS Course Enrollment.cpf_br verificado/criado.
+cpf_br: Custom Field LMS Enrollment.cpf_br verificado/criado.
 cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (portalocker).
 [CPF-BR] v5 inicializado. Modal usa v-if (childList observer ativo).
 ```
@@ -91,9 +91,9 @@ print('✅ User.cpf_br instalado:', field.name)
 # Check field LMS (se instalado)
 bench --site [seu-site] execute "
 import frappe
-if frappe.db.exists('DocType', 'LMS Course Enrollment'):
-    field = frappe.get_doc('Custom Field', 'LMS Course Enrollment-cpf_br')
-    print('✅ LMS Course Enrollment.cpf_br instalado:', field.name)
+if frappe.db.exists('DocType', 'LMS Enrollment'):
+    field = frappe.get_doc('Custom Field', 'LMS Enrollment-cpf_br')
+    print('✅ LMS Enrollment.cpf_br instalado:', field.name)
 else:
     print('⚠️ LMS não instalado (campo será criado depois)')
 "
@@ -132,7 +132,7 @@ OK
 
 ### D. Testar em LMS (se instalado)
 
-1. Ir para LMS Course Enrollment: `https://[seu-site]/lms/courses`
+1. Ir para LMS Enrollment: `https://[seu-site]/lms/courses`
 2. Criar/editar matrícula
 3. Selecionar usuário em "Member"
 4. Campo CPF deve auto-popular a partir do perfil do usuário

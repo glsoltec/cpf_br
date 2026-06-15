@@ -21,7 +21,7 @@ fixtures = [
         "filters": [
             ["name", "in", [
                 "User-cpf_br",
-                "LMS Course Enrollment-cpf_br",
+                "LMS Enrollment-cpf_br",
             ]]
         ],
     }
@@ -33,7 +33,7 @@ fixtures = [
 # ─────────────────────────────────────────────────────────────────────────────
 doctype_js = {
     "User":                  "public/js/user_cpf.js",
-    "LMS Course Enrollment": "public/js/lms_enrollment_cpf.js",
+    "LMS Enrollment": "public/js/lms_enrollment_cpf.js",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ doc_events = {
     "User": {
         "validate": "cpf_br.cpf_br.validators.validate_cpf_user",
     },
-    "LMS Course Enrollment": {
+    "LMS Enrollment": {
         "validate": "cpf_br.cpf_br.validators.validate_cpf_lms",
     },
 }
