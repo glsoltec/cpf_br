@@ -175,6 +175,8 @@
 
 	/* ── Intercept fetch: injeta cpf_br no update_profile ──────────── */
 	function instalarFetchIntercept() {
+		console.log("[CPF-BR] instalarFetchIntercept() chamada. __cpfBrFetchOk =", window.__cpfBrFetchOk);
+
 		// [CRIT-3 FIX] Guard previne múltiplas camadas de interceptor em SPA com hot reload
 		if (window.__cpfBrFetchOk) {
 			console.log("[CPF-BR] Fetch interceptor já ativo — ignorando reload.");
@@ -210,8 +212,8 @@
 				return resp;
 			}
 
-			/* Intercept update_profile (chamado pelo LMS ao salvar): injeta cpf_br */
-			if (url.includes("update_profile")) {
+			/* Intercept set_value: injeta cpf_br ao salvar User */
+			if (url.includes("frappe.client.set_value")) {
 				try {
 					if (init?.body) {
 						let params = null;
@@ -229,21 +231,79 @@
 						}
 
 						if (params) {
+							const doctype = params.get("doctype");
 							const cpf = lerInputCPF();
-							if (cpf) {
-								params.set("cpf_br", cpf);
-								console.log("[CPF-BR] ✅ cpf_br → update_profile:", cpf);
-								init = { ...init, body: params.toString() };
+
+							/* Se é User e tem CPF, adiciona/atualiza update_dict */
+							if (doctype === "User" && cpf) {
+								try {
+									const updateDictStr = params.get("update_dict");
+									let updateDict = updateDictStr ? JSON.parse(updateDictStr) : {};
+									updateDict.cpf_br = cpf;
+									params.set("update_dict", JSON.stringify(updateDict));
+									console.log("[CPF-BR] ✅ cpf_br → set_value (update_dict):", cpf);
+									init = { ...init, body: params.toString() };
+								} catch (e) {
+									console.warn("[CPF-BR] Erro ao processar update_dict:", e);
+								}
 							}
 						}
 					}
 				} catch (e) {
-					console.warn("[CPF-BR] Erro intercept update_profile:", e);
+					console.warn("[CPF-BR] Erro intercept set_value:", e);
 				}
 			}
 
 			return _prev.call(this, input, init);
 		};
+	}
+
+	/* ── Listener para Save button do modal ─────────────────────────── */
+	function setupSaveListener() {
+		document.addEventListener("click", function (e) {
+			let btn = e.target;
+			for (let i = 0; i < 5; i++) {
+				if (!btn || btn === document.body) break;
+				const txt = (btn.textContent || btn.title || btn.getAttribute?.("aria-label") || "").toLowerCase().trim();
+				if (txt.includes("save") || txt.includes("salvar")) {
+					setTimeout(() => salvarCPFViaAPI(), 500);
+					break;
+				}
+				btn = btn.parentElement;
+			}
+		}, true);
+	}
+
+	/* ── Salva CPF via frappe.client.set_value ───────────────────────── */
+	function salvarCPFViaAPI() {
+		const cpf = lerInputCPF();
+		if (!cpf) return;
+
+		console.log("[CPF-BR] 📤 Salvando CPF via API:", cpf);
+
+		const params = new URLSearchParams({
+			doctype: "User",
+			name: frappe.session?.user || "administrator",
+			update_dict: JSON.stringify({ cpf_br: cpf })
+		});
+
+		fetch("/api/method/frappe.client.set_value", {
+			method: "POST",
+			headers: {
+				"X-Frappe-CSRF-Token": window.csrf_token || "fetch",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			body: params.toString(),
+		})
+			.then(r => r.json())
+			.then(d => {
+				if (d?.message) {
+					console.log("[CPF-BR] ✅ CPF salvo com sucesso via API");
+				} else {
+					console.warn("[CPF-BR] Resposta inesperada ao salvar CPF:", d);
+				}
+			})
+			.catch(e => console.warn("[CPF-BR] Erro ao salvar CPF:", e));
 	}
 
 	/* ── MutationObserver: detecta modal adicionado ao DOM (v-if) ── */
@@ -310,6 +370,7 @@
 		instalarFetchIntercept();
 		setupObserver();
 		setupClickListener();
+		setupSaveListener();
 		console.log("[CPF-BR] v5 inicializado. Modal usa v-if (childList observer ativo).");
 	}
 
