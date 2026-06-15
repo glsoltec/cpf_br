@@ -212,45 +212,14 @@
 				return resp;
 			}
 
-			/* Intercept set_value: injeta cpf_br ao salvar User */
+			/* Intercept set_value: salva CPF como chamada separada após User ser salvo */
 			if (url.includes("frappe.client.set_value")) {
-				try {
-					if (init?.body) {
-						let params = null;
-
-						/* Parse body → URLSearchParams (suporta múltiplos formatos) */
-						if (typeof init.body === "string") {
-							try {
-								params = new URLSearchParams(init.body);
-							} catch (_) {}
-						} else if (init.body instanceof URLSearchParams) {
-							params = new URLSearchParams(init.body.toString());
-						} else if (init.body instanceof FormData) {
-							params = new URLSearchParams();
-							init.body.forEach((v, k) => params.set(k, v));
-						}
-
-						if (params) {
-							const doctype = params.get("doctype");
-							const cpf = lerInputCPF();
-
-							/* Se é User e tem CPF, adiciona/atualiza update_dict */
-							if (doctype === "User" && cpf) {
-								try {
-									const updateDictStr = params.get("update_dict");
-									let updateDict = updateDictStr ? JSON.parse(updateDictStr) : {};
-									updateDict.cpf_br = cpf;
-									params.set("update_dict", JSON.stringify(updateDict));
-									console.log("[CPF-BR] ✅ cpf_br → set_value (update_dict):", cpf);
-									init = { ...init, body: params.toString() };
-								} catch (e) {
-									console.warn("[CPF-BR] Erro ao processar update_dict:", e);
-								}
-							}
-						}
-					}
-				} catch (e) {
-					console.warn("[CPF-BR] Erro intercept set_value:", e);
+				const cpf = lerInputCPF();
+				if (cpf) {
+					const resp = await _prev.call(this, input, init);
+					// Após salvar User, salva CPF em chamada separada
+					setTimeout(() => salvarCPFViaAPI(), 300);
+					return resp;
 				}
 			}
 
