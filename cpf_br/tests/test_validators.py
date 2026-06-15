@@ -5,7 +5,7 @@ Ou: python -m pytest cpf_br/tests/test_validators.py (se pytest instalado)
 """
 
 import unittest
-from cpf_br.cpf_br.validators import _cpf_valido, _formatar_cpf
+from lms_frappe_cpf_br.validators import _cpf_valido, _formatar_cpf
 
 
 class TestCPFValidation(unittest.TestCase):

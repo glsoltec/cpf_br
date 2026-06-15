@@ -1,5 +1,5 @@
 """
-Funções executadas após instalação e migração do app cpf_br.
+Funções executadas após instalação e migração do app lms_frappe_cpf_br.
 
 Garante que os Custom Fields existam independentemente dos fixtures.
 O campo LMS Enrollment só é criado se o DocType existir no banco
@@ -73,9 +73,9 @@ CAMPO_LMS = {
 }
 
 # Marcador único que garante idempotência (não injeta duas vezes)
-_CPF_MARKER = "<!-- cpf_br:lms_profile_cpf -->"
-_CPF_SCRIPT  = '''<script src="/assets/cpf_br/js/cpf_utils.js"></script>
-<script src="/assets/cpf_br/js/lms_profile_cpf.js"></script>'''
+_CPF_MARKER = "<!-- lms_frappe_cpf_br:lms_profile_cpf -->"
+_CPF_SCRIPT  = '''<script src="/assets/lms_frappe_cpf_br/js/cpf_utils.js"></script>
+<script src="/assets/lms_frappe_cpf_br/js/lms_profile_cpf.js"></script>'''
 
 
 # ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -106,16 +106,16 @@ def _criar_campos():
     # 1. Campo no User (sempre disponível)
     create_custom_fields(CAMPO_USER, ignore_validate=True)
     frappe.db.commit()
-    print("cpf_br: Custom Field User.cpf_br verificado/criado.")
+    print("lms_frappe_cpf_br: Custom Field User.cpf_br verificado/criado.")
 
     # 2. Campo no LMS — só se o DocType existir
     if frappe.db.exists("DocType", "LMS Enrollment"):
         create_custom_fields(CAMPO_LMS, ignore_validate=True)
         frappe.db.commit()
-        print("cpf_br: Custom Field LMS Enrollment.cpf_br verificado/criado.")
+        print("lms_frappe_cpf_br: Custom Field LMS Enrollment.cpf_br verificado/criado.")
     else:
         print(
-            "cpf_br: DocType 'LMS Enrollment' não encontrado — "
+            "lms_frappe_cpf_br: DocType 'LMS Enrollment' não encontrado — "
             "campo será criado no próximo `bench migrate` após instalar o app lms."
         )
 
@@ -139,19 +139,19 @@ def _injetar_script_lms():
 	try:
 		lms_www = frappe.get_app_path("lms", "www")
 	except Exception:
-		print("cpf_br: app 'lms' não encontrado — injeção no _lms.html ignorada.")
+		print("lms_frappe_cpf_br: app 'lms' não encontrado — injeção no _lms.html ignorada.")
 		return
 
 	template_path = os.path.join(lms_www, "_lms.html")
 
 	if not os.path.exists(template_path):
 		print(
-			"cpf_br: _lms.html não encontrado em %s — execute "
+			"lms_frappe_cpf_br: _lms.html não encontrado em %s — execute "
 			"`bench build --app lms` primeiro, depois `bench migrate`." % template_path
 		)
 		return
 
-	lock_path = template_path + ".cpf_br.lock"
+	lock_path = template_path + ".lms_frappe_cpf_br.lock"
 
 	# ─── Acquire lock ───────────────────────────────────────────────────────
 	if HAS_PORTALOCKER:
@@ -160,7 +160,7 @@ def _injetar_script_lms():
 		_injetar_com_fcntl(template_path, lock_path)
 	else:
 		# Fallback: sem lock (risco de race condition em produção)
-		print("cpf_br: ⚠️ Aviso: portalocker/fcntl não disponível. "
+		print("lms_frappe_cpf_br: ⚠️ Aviso: portalocker/fcntl não disponível. "
 			  "Usando fallback sem lock (risco em bench migrate paralelo).")
 		_injetar_direto(template_path)
 
@@ -178,7 +178,7 @@ def _injetar_com_portalocker(template_path, lock_path):
 				content = fh.read()
 
 			if _CPF_MARKER in content:
-				print("cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
+				print("lms_frappe_cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
 				return
 
 			# Injeta antes de </body>
@@ -194,14 +194,14 @@ def _injetar_com_portalocker(template_path, lock_path):
 			with open(template_path, "w", encoding="utf-8") as fh:
 				fh.write(content)
 
-			print("cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (portalocker).")
+			print("lms_frappe_cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (portalocker).")
 	except portalocker.LockException:
 		frappe.log_error(
-			title="cpf_br lock timeout",
+			title="lms_frappe_cpf_br lock timeout",
 			message=f"Não conseguiu adquirir lock em {lock_path} após 5s. "
 					"Outro processo pode estar modificando _lms.html."
 		)
-		print("cpf_br: ❌ Lock timeout — outra instância pode estar injetando. Abortando.")
+		print("lms_frappe_cpf_br: ❌ Lock timeout — outra instância pode estar injetando. Abortando.")
 
 
 def _injetar_com_fcntl(template_path, lock_path):
@@ -213,7 +213,7 @@ def _injetar_com_fcntl(template_path, lock_path):
 		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)  # Non-blocking
 	except (IOError, BlockingIOError):
 		# Lock em uso por outro processo — espera
-		print("cpf_br: Lock em uso, aguardando...")
+		print("lms_frappe_cpf_br: Lock em uso, aguardando...")
 		lock_fh = open(lock_path, "w")
 		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)  # Blocking
 
@@ -223,7 +223,7 @@ def _injetar_com_fcntl(template_path, lock_path):
 			content = fh.read()
 
 		if _CPF_MARKER in content:
-			print("cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
+			print("lms_frappe_cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
 			return
 
 		if "</body>" in content:
@@ -238,7 +238,7 @@ def _injetar_com_fcntl(template_path, lock_path):
 		with open(template_path, "w", encoding="utf-8") as fh:
 			fh.write(content)
 
-		print("cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (fcntl).")
+		print("lms_frappe_cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (fcntl).")
 	finally:
 		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
 		lock_fh.close()
@@ -257,7 +257,7 @@ def _injetar_direto(template_path):
 		content = fh.read()
 
 	if _CPF_MARKER in content:
-		print("cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
+		print("lms_frappe_cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
 		return
 
 	if "</body>" in content:
@@ -275,20 +275,20 @@ def _injetar_direto(template_path):
 
 def before_uninstall():
 	"""Executado antes da desinstalação do app — remove dados e campos do app."""
-	print("cpf_br: Iniciando limpeza pré-desinstalação...")
+	print("lms_frappe_cpf_br: Iniciando limpeza pré-desinstalação...")
 
 	# 1. Remover campos customizados
 	campos = ["User-cpf_br", "LMS Enrollment-cpf_br"]
 	for campo in campos:
 		if frappe.db.exists("Custom Field", campo):
 			frappe.delete_doc("Custom Field", campo, force=True)
-			print(f"cpf_br: Custom Field '{campo}' removido.")
+			print(f"lms_frappe_cpf_br: Custom Field '{campo}' removido.")
 
 	# 2. Remover injeção de script no template do LMS
 	_remover_script_lms()
 
 	frappe.db.commit()
-	print("cpf_br: Limpeza concluída com sucesso.")
+	print("lms_frappe_cpf_br: Limpeza concluída com sucesso.")
 
 
 def _remover_script_lms():
@@ -296,7 +296,7 @@ def _remover_script_lms():
 	try:
 		lms_www = frappe.get_app_path("lms", "www")
 	except Exception:
-		print("cpf_br: app 'lms' não encontrado — remoção do script ignorada.")
+		print("lms_frappe_cpf_br: app 'lms' não encontrado — remoção do script ignorada.")
 		return
 
 	template_path = os.path.join(lms_www, "_lms.html")
@@ -304,7 +304,7 @@ def _remover_script_lms():
 	if not os.path.exists(template_path):
 		return
 
-	lock_path = template_path + ".cpf_br.lock"
+	lock_path = template_path + ".lms_frappe_cpf_br.lock"
 
 	def remover_conteudo(path):
 		with open(path, "r", encoding="utf-8") as fh:
@@ -319,16 +319,16 @@ def _remover_script_lms():
 
 			with open(path, "w", encoding="utf-8") as fh:
 				fh.write(content)
-			print("cpf_br: ✅ Script CPF removido com sucesso de _lms.html.")
+			print("lms_frappe_cpf_br: ✅ Script CPF removido com sucesso de _lms.html.")
 		else:
-			print("cpf_br: Script CPF não estava presente em _lms.html.")
+			print("lms_frappe_cpf_br: Script CPF não estava presente em _lms.html.")
 
 	if HAS_PORTALOCKER:
 		try:
 			with portalocker.Lock(lock_path, mode="w", timeout=5):
 				remover_conteudo(template_path)
 		except Exception as e:
-			print(f"cpf_br: Falha ao obter lock para remoção: {e}. Removendo sem lock...")
+			print(f"lms_frappe_cpf_br: Falha ao obter lock para remoção: {e}. Removendo sem lock...")
 			remover_conteudo(template_path)
 	else:
 		remover_conteudo(template_path)

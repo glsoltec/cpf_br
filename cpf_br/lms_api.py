@@ -5,7 +5,7 @@ Registrado em hooks.py via override_whitelisted_methods.
 
 import frappe
 from frappe import _
-from cpf_br.cpf_br.validators import _cpf_valido, _formatar_cpf
+from lms_frappe_cpf_br.validators import _cpf_valido, _formatar_cpf
 
 
 @frappe.whitelist()

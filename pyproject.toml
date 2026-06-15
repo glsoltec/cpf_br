@@ -1,9 +1,9 @@
 [project]
-name = "cpf_br"
+name = "lms_frappe_cpf_br"
 authors = [
     { name = "Pascoal Freitas", email = "pascoal.freitas@glsoltec.com.br"}
 ]
-description = "Campo CPF"
+description = "LMS Frappe CPF Brasil"
 requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]

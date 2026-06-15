@@ -6,7 +6,7 @@ ao contexto web mesmo em versões do Frappe que não processam o campo
 web_include_js a partir do hooks.py para templates SPA (Vue 3 / Vite).
 """
 
-_CPF_SCRIPT = "/assets/cpf_br/js/lms_profile_cpf.js"
+_CPF_SCRIPT = "/assets/lms_frappe_cpf_br/js/lms_profile_cpf.js"
 
 
 def inject_cpf_js(context):

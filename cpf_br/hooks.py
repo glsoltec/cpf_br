@@ -1,16 +1,16 @@
-app_name        = "cpf_br"
-app_title       = "Campo CPF"
+app_name        = "lms_frappe_cpf_br"
+app_title       = "LMS Frappe CPF Brasil"
 app_publisher   = "Pascoal Freitas"
-app_description = "Campo CPF"
+app_description = "LMS Frappe CPF Brasil"
 app_email       = "pascoal.freitas@glsoltec.com.br"
 app_license     = "mit"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Criação automática dos Custom Fields na instalação e em cada bench migrate
 # ─────────────────────────────────────────────────────────────────────────────
-after_install = "cpf_br.setup.after_install"
-after_migrate = "cpf_br.setup.after_migrate"
-before_uninstall = "cpf_br.setup.before_uninstall"
+after_install = "lms_frappe_cpf_br.setup.after_install"
+after_migrate = "lms_frappe_cpf_br.setup.after_migrate"
+before_uninstall = "lms_frappe_cpf_br.setup.before_uninstall"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures — garante que os Custom Fields sejam versionados e reimportados
@@ -42,10 +42,10 @@ doctype_js = {
 # ─────────────────────────────────────────────────────────────────────────────
 doc_events = {
     "User": {
-        "validate": "cpf_br.cpf_br.validators.validate_cpf_user",
+        "validate": "lms_frappe_cpf_br.validators.validate_cpf_user",
     },
     "LMS Enrollment": {
-        "validate": "cpf_br.cpf_br.validators.validate_cpf_lms",
+        "validate": "lms_frappe_cpf_br.validators.validate_cpf_lms",
     },
 }
 
@@ -53,8 +53,8 @@ doc_events = {
 # Override das APIs do LMS — permite ler e salvar cpf_br pelo perfil web
 # ─────────────────────────────────────────────────────────────────────────────
 override_whitelisted_methods = {
-    "lms.lms.api.update_profile":      "cpf_br.lms_api.update_profile",
-    "lms.lms.api.get_profile_details": "cpf_br.lms_api.get_profile_details",
+    "lms.lms.api.update_profile":      "lms_frappe_cpf_br.lms_api.update_profile",
+    "lms.lms.api.get_profile_details": "lms_frappe_cpf_br.lms_api.get_profile_details",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -71,8 +71,8 @@ override_whitelisted_methods = {
 #    (método definitivo: o template do LMS SPA não estende base.html)
 # ─────────────────────────────────────────────────────────────────────────────
 web_include_js = [
-	"/assets/cpf_br/js/cpf_utils.js",        # [IMP-1] 1º: utilitários compartilhados
-	"/assets/cpf_br/js/lms_profile_cpf.js",  # 2º: script que usa CpfUtils
+	"/assets/lms_frappe_cpf_br/js/cpf_utils.js",        # [IMP-1] 1º: utilitários compartilhados
+	"/assets/lms_frappe_cpf_br/js/lms_profile_cpf.js",  # 2º: script que usa CpfUtils
 ]
 
-update_website_context = "cpf_br.website_utils.inject_cpf_js"
+update_website_context = "lms_frappe_cpf_br.website_utils.inject_cpf_js"
