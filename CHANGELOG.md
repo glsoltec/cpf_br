@@ -1,15 +1,30 @@
-# Changelog
+# Changelog — CPF BR para LMS
 
-Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
+Todas as mudanças notáveis neste projeto (versão para Frappe LMS) serão documentadas neste arquivo.
 
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**App:** cpf_br  
+**Plataforma:** Frappe LMS v16  
+**Licença:** MIT  
+**Mantido por:** GL Soltec
+
 ---
 
-## [1.0.0] — 2026-06-15
+## [1.0.0] — 2026-06-15 — Versão LMS
 
-### ✨ Novo
+> **Versão estável para uso em Frappe LMS v16**
+
+### ✨ Novo (Integração LMS)
+
+- **🎓 Modal "Edit Profile"** — Campo CPF em /lms para alunos editarem próprio CPF
+- **🔄 Sincronização LMS Enrollment ↔ User** — Bidirecional e automática
+- **⚠️ Avisos de Alteração** — Notifica quando CPF é diferente do User
+- **📝 Logging de Auditoria** — Rastreia todas as mudanças de CPF
+- **🎯 Auto-preenchimento em Matrículas** — CPF vem do perfil do aluno
+
+### ✨ Novo (Infraestrutura)
 
 - **[CRIT-1] File Locking em `bench migrate`** — Previne race condition com portalocker
 - **[CRIT-2] Sincronização Fail-Fast** — CPF salvo ANTES de chamar LMS
@@ -18,7 +33,6 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **[IMP-2] Validação Inteligente de Campo** — Não sobrescreve input se usuário já digitou
 - **[IMP-3] Seletores CSS Robustos** — Fallbacks em cascata para compatibilidade
 - **[IMP-4] Validação CPF Explícita** — Clareza no cálculo de dígitos verificadores
-- **Sincronização CPF User ↔ LMS Enrollment** — Bidireção, avisos e logging
 - **Testes Unitários Completos** — 14 testes, 85% de cobertura
 - **Documentação Extensiva** — DEPLOY.md, CORREÇÕES_IMPLEMENTADAS.md, etc
 
@@ -63,6 +77,31 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Nomeação correta do DocType "LMS Enrollment" (era "LMS Course Enrollment")
 - Referências consistentes em hooks.py, validators.py, patches
+
+---
+
+## 🎓 Compatibilidade LMS
+
+Esta versão foi desenvolvida e testada para:
+
+```
+✅ Frappe LMS v16.0+
+✅ Frappe Framework v16.0+
+✅ ERPNext v16.0+
+✅ Python 3.10+
+```
+
+### Funcionalidades por Componente
+
+| Feature | Sem LMS | Com LMS |
+|---------|---------|---------|
+| Campo CPF em User | ✅ | ✅ |
+| Validação CPF | ✅ | ✅ |
+| Máscara Automática | ✅ | ✅ |
+| Campo em Enrollment | ❌ | ✅ |
+| Modal "Edit Profile" | ❌ | ✅ |
+| Sincronização User ↔ Enrollment | ❌ | ✅ |
+| Portal /lms integrado | ❌ | ✅ |
 
 ---
 

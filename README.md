@@ -1,11 +1,28 @@
-# 🇧🇷 CPF BR — App Frappe/ERPNext
+# 🇧🇷 CPF BR — App Frappe/ERPNext para LMS
 
-**Integração completa de validação e gestão de CPF (Cadastro de Pessoa Física) para Frappe Framework v16 e ERPNext v16.**
+**Integração completa de validação e gestão de CPF (Cadastro de Pessoa Física) para Frappe Framework v16 e ERPNext v16 — **Versão para uso em Plataforma LMS (Learning Management System)**
 
 [![GitHub Release](https://img.shields.io/github/v/release/glsoltec/cpf_br?include_prereleases)](https://github.com/glsoltec/cpf_br/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Frappe v16](https://img.shields.io/badge/Frappe-v16-4B8BBE.svg)](https://github.com/frappe/frappe)
+[![LMS Ready](https://img.shields.io/badge/LMS-Ready-brightgreen.svg)](#)
+
+---
+
+## 🎓 Versão para LMS (Learning Management System)
+
+> **Este app é especificamente desenvolvido para funcionar com a plataforma LMS (Frappe LMS).**
+> 
+> Oferece validação, formatação e sincronização de CPF em matrículas de cursos, com integração completa na plataforma de educação.
+
+### 🎯 Cenários de Uso no LMS
+
+- **Matrículas em Cursos** — CPF obrigatório/opcional ao se matricular
+- **Gestão de Alunos** — Rastrear CPF de cada aluno matriculado
+- **Conformidade LGPD** — Logging automático de alterações de dados pessoais
+- **Relatórios Educacionais** — Filtrar turmas por CPF do aluno
+- **Integração com Sistemas** — Sincronizar CPF para sistemas externos via API
 
 ---
 
@@ -24,23 +41,45 @@
 
 ## 🎯 Casos de Uso
 
+### 🎓 **Plataforma LMS (Primário)**
+
+- **Matrículas em Cursos** — Registrar CPF de aluno ao se matricular
+- **Portal do Aluno** — CPF no perfil de usuário do LMS
+- **Modal "Edit Profile"** — Permitir aluno editar seu próprio CPF
+- **Sincronização User ↔ Enrollment** — CPF sincroniza entre User e Matrícula
+- **Validação em Tempo Real** — Máscaras e validação no frontend
+
+### 🏢 **ERPNext/Frappe (Suplementar)**
+
 - **Gestão de Usuários** — Validar e armazenar CPF em perfis
-- **Matrículas LMS** — CPF obrigatório/opcional em cursos
 - **Conformidade LGPD** — Rastrear alterações de CPF com logging
 - **Integrações** — API para validar CPF antes de operações
-- **Relatórios** — Filtrar usuários por CPF
+- **Relatórios** — Filtrar usuários/matrículas por CPF
 
 ---
 
 ## 📦 Pré-requisitos
 
-| Componente | Versão |
-|-----------|--------|
-| **Frappe Framework** | v16.0+ |
-| **ERPNext** | v16.0+ |
-| **Python** | 3.10+ |
-| **Bench CLI** | Recente |
-| **portalocker** | 2.7.0+ |
+| Componente | Versão | Obrigatório |
+|-----------|--------|-----------|
+| **Frappe Framework** | v16.0+ | ✅ Sim |
+| **ERPNext** | v16.0+ | ✅ Sim |
+| **Frappe LMS** | v16.0+ | ⚠️ Recomendado* |
+| **Python** | 3.10+ | ✅ Sim |
+| **Bench CLI** | Recente | ✅ Sim |
+| **portalocker** | 2.7.0+ | ✅ Sim |
+
+**\* Nota:** O app funciona sem LMS (campo CPF estará disponível em User), mas as funcionalidades de matrículas e integração com o portal LMS exigem o app `frappe-lms` instalado.
+
+### Compatibilidade
+
+```
+cpf_br v1.0.0
+├─ Frappe Framework v16.0+
+├─ ERPNext v16.0+
+├─ Frappe LMS v16.0+ (opcional, recomendado)
+└─ Python 3.10+
+```
 
 ---
 
@@ -151,6 +190,64 @@ enrollment = frappe.get_doc({
 })
 enrollment.save()
 ```
+
+---
+
+## 🚀 Integração LMS — Recursos
+
+### Auto-Preenchimento em Matrículas
+
+Ao criar/editar uma matrícula (LMS Enrollment):
+1. **Selecione um aluno** (Member)
+2. **CPF auto-preenche** a partir do perfil do usuário
+3. **Você pode editar** se necessário
+4. **Sincroniza de volta** ao salvar
+
+```python
+# Exemplo: Criar matrícula
+enrollment = frappe.get_doc({
+    "doctype": "LMS Enrollment",
+    "member": "aluno@escola.edu.br",
+    "course": "Python 101",
+    "cpf_br": "123.456.789-09"  # Auto-preenchido ou manual
+})
+enrollment.save()  # Sincroniza para User automaticamente
+```
+
+### Modal "Edit Profile" (Web)
+
+No portal do LMS (`/lms`), o aluno pode:
+1. Ir para **Edit Profile**
+2. **Preencher/editar CPF**
+3. **Salvar** — CPF é validado e formatado
+
+### Sincronização Bidirecional
+
+```
+User.cpf_br ←→ LMS Enrollment.cpf_br
+
+Scenario 1: Matrícula pega CPF do User
+├─ Member selecionado
+└─ CPF auto-preenche de User
+
+Scenario 2: Alterar CPF na Matrícula
+├─ ⚠️ Aviso: "CPF diferente do usuário"
+├─ User CPF: 111.444.777-35
+└─ Enrollment CPF: 123.456.789-09
+
+Scenario 3: Salvar Matrícula
+├─ CPF sincroniza para User
+└─ ✅ "CPF atualizado no perfil do usuário"
+```
+
+### Validação em Dois Níveis
+
+| Nível | Local | Tipo | Quando |
+|-------|-------|------|--------|
+| **1** | JavaScript | Client-side | Ao digitar no campo |
+| **2** | Python | Server-side | Ao salvar matrícula |
+
+Ambos validam formato e dígitos verificadores.
 
 ---
 
@@ -458,10 +555,20 @@ App Name:        cpf_br
 Version:         1.0.0
 Framework:       Frappe v16
 ERP:             ERPNext v16
+LMS:             Frappe LMS v16 (recomendado)
 Python:          3.10+
 License:         MIT
 Status:          Production Ready ✅
+Use Case:        LMS Integration (Primary)
 Last Updated:    2026-06-15
+
+Campos:
+├─ User.cpf_br (Data)
+└─ LMS Enrollment.cpf_br (Data)
+
+Hooks:
+├─ Doc Events (validate)
+└─ Web Include JS (LMS portal)
 ```
 
 ---
