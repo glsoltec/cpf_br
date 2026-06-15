@@ -135,10 +135,16 @@
 		const inp = document.getElementById(INPUT_ID);
 		const erro = document.getElementById(ERRO_ID);
 
+		if (!inp) {
+			console.warn("[CPF-BR] Input CPF não foi criado corretamente.");
+			return;
+		}
+
 		inp.addEventListener("input", () => {
 			// [IMP-1 FIX] Usa CpfUtils.mascarar
 			inp.value = window.CpfUtils ? window.CpfUtils.mascarar(inp.value) : inp.value;
 			erro.style.display = "none";
+			console.log("[CPF-BR] Input digitado:", inp.value);
 		});
 		inp.addEventListener("blur", () => {
 			const raw = inp.value.replace(/\D/g, "");
@@ -146,6 +152,8 @@
 			if (raw && !(window.CpfUtils && window.CpfUtils.valido(raw))) {
 				erro.textContent = "CPF inválido — verifique os dígitos.";
 				erro.style.display = "block";
+			} else if (raw) {
+				console.log("[CPF-BR] ✅ CPF válido no blur:", inp.value);
 			}
 		});
 
@@ -165,7 +173,7 @@
 		console.log("[CPF-BR] ✅ Campo CPF injetado. Âncora:", anchor.id);
 	}
 
-	/* ── Intercept fetch: injeta cpf_br no set_value ──────────── */
+	/* ── Intercept fetch: injeta cpf_br no update_profile ──────────── */
 	function instalarFetchIntercept() {
 		// [CRIT-3 FIX] Guard previne múltiplas camadas de interceptor em SPA com hot reload
 		if (window.__cpfBrFetchOk) {
@@ -195,11 +203,13 @@
 				return resp;
 			}
 
-			/* Intercept set_value: injeta cpf_br no fieldname */
-			if (url.includes("frappe.client.set_value")) {
+			/* Intercept update_profile (chamado pelo LMS ao salvar): injeta cpf_br */
+			if (url.includes("update_profile")) {
 				try {
 					if (init?.body) {
 						let params = null;
+
+						/* Parse body → URLSearchParams (suporta múltiplos formatos) */
 						if (typeof init.body === "string") {
 							try {
 								params = new URLSearchParams(init.body);
@@ -210,19 +220,18 @@
 							params = new URLSearchParams();
 							init.body.forEach((v, k) => params.set(k, v));
 						}
-						if (params && params.get("doctype") === "User") {
-							let fn = {};
-							try {
-								fn = JSON.parse(params.get("fieldname") || "{}");
-							} catch (_) {}
-							fn.cpf_br = lerInputCPF();
-							params.set("fieldname", JSON.stringify(fn));
-							console.log("[CPF-BR] cpf_br → set_value:", fn.cpf_br);
-							init = { ...init, body: params.toString() };
+
+						if (params) {
+							const cpf = lerInputCPF();
+							if (cpf) {
+								params.set("cpf_br", cpf);
+								console.log("[CPF-BR] ✅ cpf_br → update_profile:", cpf);
+								init = { ...init, body: params.toString() };
+							}
 						}
 					}
 				} catch (e) {
-					console.warn("[CPF-BR] Erro intercept set_value:", e);
+					console.warn("[CPF-BR] Erro intercept update_profile:", e);
 				}
 			}
 
