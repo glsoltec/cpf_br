@@ -30,20 +30,7 @@ def get_profile_details(username):
 
 
 @frappe.whitelist()
-def update_profile(
-	first_name=None,
-	last_name=None,
-	username=None,
-	headline=None,
-	bio=None,
-	location=None,
-	image=None,
-	linkedin=None,
-	github=None,
-	twitter=None,
-	open_to=None,
-	cpf_br=None,
-):
+def update_profile(*args, **kwargs):
 	"""
 	Estende lms.lms.api.update_profile salvando também o campo cpf_br
 	no DocType User do usuário logado.
@@ -54,8 +41,9 @@ def update_profile(
 	"""
 	from lms.lms.api import update_profile as _original
 
-	# [CRIT-2] Valida e salva CPF PRIMEIRO (antes de chamar LMS)
-	# Isso garante que mesmo se LMS falhar, CPF foi persistido
+	# Extrai o cpf_br se enviado no payload
+	cpf_br = kwargs.pop("cpf_br", None)
+
 	if cpf_br is not None:
 		cpf = cpf_br.strip() if isinstance(cpf_br, str) else ""
 
@@ -80,27 +68,16 @@ def update_profile(
 			f"[cpf_br] ✅ CPF salvo com sucesso: {cpf} para user={frappe.session.user}"
 		)
 
-		return {
-			"status": "ok",
-			"cpf_br": cpf,
-			"user": frappe.session.user,
-		}
-
-	# Se não houver CPF, apenas chama LMS
+	# Sempre executa a lógica original do LMS para salvar os outros campos do perfil
 	try:
-		_original(
-			first_name=first_name,
-			last_name=last_name,
-			username=username,
-			headline=headline,
-			bio=bio,
-			location=location,
-			image=image,
-			linkedin=linkedin,
-			github=github,
-			twitter=twitter,
-			open_to=open_to,
-		)
+		res = _original(*args, **kwargs)
+		# Se cpf_br foi manipulado, retorna resposta estendida
+		if cpf_br is not None:
+			if isinstance(res, dict):
+				res["cpf_br"] = cpf
+			elif res is None:
+				res = {"status": "ok", "cpf_br": cpf}
+		return res
 	except Exception as e:
 		frappe.log_error(
 			title="[cpf_br] LMS update_profile falhou",

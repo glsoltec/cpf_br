@@ -40,7 +40,9 @@ def _cpf_valido(cpf: str) -> bool:
 
 def _formatar_cpf(cpf: str) -> str:
     """Retorna CPF no formato '123.456.789-09'."""
-    cpf = re.sub(r"\D", "", cpf)
+    cpf = re.sub(r"\D", "", cpf or "")
+    if len(cpf) != 11:
+        return cpf
     return f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
 
 

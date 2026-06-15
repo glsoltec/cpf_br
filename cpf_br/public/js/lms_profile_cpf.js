@@ -145,6 +145,7 @@
 			// [IMP-1 FIX] Usa CpfUtils.mascarar
 			inp.value = window.CpfUtils ? window.CpfUtils.mascarar(inp.value) : inp.value;
 			erro.style.display = "none";
+			_cpfCache = inp.value; // Atualiza o cache na digitação
 			console.log("[CPF-BR] Input digitado:", inp.value);
 		});
 		inp.addEventListener("blur", () => {
@@ -154,6 +155,7 @@
 				erro.textContent = "CPF inválido — verifique os dígitos.";
 				erro.style.display = "block";
 			} else if (raw) {
+				_cpfCache = inp.value; // Atualiza o cache ao sair do campo
 				console.log("[CPF-BR] ✅ CPF válido no blur:", inp.value);
 			}
 		});
@@ -167,6 +169,7 @@
 				const inp = document.getElementById(INPUT_ID);
 				if (inp && !inp.value && cpf) {
 					inp.value = cpf;
+					_cpfCache = cpf; // Atualiza o cache com a busca inicial
 				}
 			});
 		}
@@ -174,7 +177,7 @@
 		console.log("[CPF-BR] ✅ Campo CPF injetado. Âncora:", anchor.id);
 	}
 
-	/* ── Intercept fetch: injeta cpf_br no update_profile ──────────── */
+	/* ── Intercept fetch: injeta cpf_br no update_profile e set_value ── */
 	function instalarFetchIntercept() {
 		console.log("[CPF-BR] instalarFetchIntercept() chamada. __cpfBrFetchOk =", window.__cpfBrFetchOk);
 
@@ -213,17 +216,95 @@
 				return resp;
 			}
 
-			/* Intercept set_value: salva CPF como chamada separada após User ser salvo */
-			if (url.includes("frappe.client.set_value")) {
-				const cpf = lerInputCPF();
-				console.log("[CPF-BR] set_value detectado. CPF lido:", cpf || "(vazio)");
-				if (cpf) {
-					_cpfParaSalvar = cpf; // Cache antes que modal feche e DOM seja destruído
-					console.log("[CPF-BR] 🔒 CPF cacheado para salvar:", cpf);
-					const resp = await _prev.call(this, input, init);
-					// Após salvar User, salva CPF em chamada separada
-					setTimeout(() => salvarCPFViaAPI(), 300);
-					return resp;
+			/* Intercept update_profile ou set_value: injeta cpf_br no payload */
+			if (url.includes("update_profile") || url.includes("frappe.client.set_value")) {
+				const cpf = lerInputCPF() || _cpfCache;
+				console.log("[CPF-BR] Request detectado no fetch:", url, "CPF lido:", cpf || "(vazio)");
+				if (cpf && init) {
+					if (init.body) {
+						try {
+							if (typeof init.body === "string") {
+								if (init.body.trim().startsWith("{")) {
+									const bodyObj = JSON.parse(init.body);
+									bodyObj.cpf_br = cpf;
+									if (url.includes("frappe.client.set_value")) {
+										if (bodyObj.update_dict) {
+											const dict = JSON.parse(bodyObj.update_dict);
+											dict.cpf_br = cpf;
+											bodyObj.update_dict = JSON.stringify(dict);
+										} else {
+											bodyObj.fieldname = bodyObj.fieldname || {};
+											if (typeof bodyObj.fieldname === "string") {
+												const fnObj = JSON.parse(bodyObj.fieldname);
+												fnObj.cpf_br = cpf;
+												bodyObj.fieldname = JSON.stringify(fnObj);
+											} else {
+												bodyObj.fieldname.cpf_br = cpf;
+											}
+										}
+									}
+									init.body = JSON.stringify(bodyObj);
+									console.log("[CPF-BR] CPF injetado no body JSON do fetch.");
+								} else {
+									const params = new URLSearchParams(init.body);
+									params.set("cpf_br", cpf);
+									if (url.includes("frappe.client.set_value")) {
+										let dictStr = params.get("update_dict");
+										if (dictStr) {
+											const dict = JSON.parse(dictStr);
+											dict.cpf_br = cpf;
+											params.set("update_dict", JSON.stringify(dict));
+										} else {
+											params.set("fieldname", JSON.stringify({ cpf_br: cpf }));
+										}
+									}
+									init.body = params.toString();
+									console.log("[CPF-BR] CPF injetado no body URL-encoded do fetch.");
+								}
+							} else if (init.body instanceof URLSearchParams) {
+								init.body.set("cpf_br", cpf);
+								if (url.includes("frappe.client.set_value")) {
+									let dictStr = init.body.get("update_dict");
+									if (dictStr) {
+										const dict = JSON.parse(dictStr);
+										dict.cpf_br = cpf;
+										init.body.set("update_dict", JSON.stringify(dict));
+									} else {
+										init.body.set("fieldname", JSON.stringify({ cpf_br: cpf }));
+									}
+								}
+								console.log("[CPF-BR] CPF injetado no body URLSearchParams do fetch.");
+							} else if (init.body instanceof FormData) {
+								init.body.set("cpf_br", cpf);
+								if (url.includes("frappe.client.set_value")) {
+									let dictStr = init.body.get("update_dict");
+									if (dictStr) {
+										const dict = JSON.parse(dictStr);
+										dict.cpf_br = cpf;
+										init.body.set("update_dict", JSON.stringify(dict));
+									} else {
+										init.body.set("fieldname", JSON.stringify({ cpf_br: cpf }));
+									}
+								}
+								console.log("[CPF-BR] CPF injetado no body FormData do fetch.");
+							}
+						} catch (err) {
+							console.warn("[CPF-BR] Erro ao injetar CPF no body do fetch:", err);
+						}
+					} else {
+						const params = new URLSearchParams({ cpf_br: cpf });
+						if (url.includes("frappe.client.set_value")) {
+							params.set("doctype", "User");
+							params.set("name", frappe.session?.user || "administrator");
+							params.set("update_dict", JSON.stringify({ cpf_br: cpf }));
+						}
+						init.body = params.toString();
+						init.headers = {
+							...(init.headers || {}),
+							"Content-Type": "application/x-www-form-urlencoded"
+						};
+						console.log("[CPF-BR] Criado body com CPF para request (fetch).");
+					}
 				}
 			}
 
@@ -231,55 +312,105 @@
 		};
 	}
 
-	/* ── Listener para Save button do modal ─────────────────────────── */
-	function setupSaveListener() {
-		document.addEventListener("click", function (e) {
-			let btn = e.target;
-			for (let i = 0; i < 5; i++) {
-				if (!btn || btn === document.body) break;
-				const txt = (btn.textContent || btn.title || btn.getAttribute?.("aria-label") || "").toLowerCase().trim();
-				if (txt.includes("save") || txt.includes("salvar")) {
-					setTimeout(() => salvarCPFViaAPI(), 500);
-					break;
-				}
-				btn = btn.parentElement;
-			}
-		}, true);
-	}
+	/* ── Intercept XHR: injeta cpf_br no update_profile e set_value ── */
+	function instalarXhrIntercept() {
+		console.log("[CPF-BR] instalarXhrIntercept() chamada. __cpfBrXhrOk =", window.__cpfBrXhrOk);
 
-	/* ── Salva CPF via frappe.client.set_value ───────────────────────── */
-	function salvarCPFViaAPI() {
-		const cpf = _cpfParaSalvar; // Usa valor cacheado (input pode ter sido destruído)
-		if (!cpf) {
-			console.warn("[CPF-BR] Sem CPF em cache para salvar");
+		if (window.__cpfBrXhrOk) {
+			console.log("[CPF-BR] XHR interceptor já ativo — ignorando.");
 			return;
 		}
+		window.__cpfBrXhrOk = true;
+		console.log("[CPF-BR] ⚙️ Instalando XHR interceptor...");
 
-		console.log("[CPF-BR] 📤 Salvando CPF via API:", cpf);
+		const originalOpen = XMLHttpRequest.prototype.open;
+		const originalSend = XMLHttpRequest.prototype.send;
 
-		const params = new URLSearchParams({
-			doctype: "User",
-			name: frappe.session?.user || "administrator",
-			update_dict: JSON.stringify({ cpf_br: cpf })
-		});
+		XMLHttpRequest.prototype.open = function (method, url) {
+			this._url = url;
+			this._method = method;
+			return originalOpen.apply(this, arguments);
+		};
 
-		fetch("/api/method/frappe.client.set_value", {
-			method: "POST",
-			headers: {
-				"X-Frappe-CSRF-Token": window.csrf_token || "fetch",
-				"Content-Type": "application/x-www-form-urlencoded",
-			},
-			body: params.toString(),
-		})
-			.then(r => r.json())
-			.then(d => {
-				if (d?.message) {
-					console.log("[CPF-BR] ✅ CPF salvo com sucesso via API");
-				} else {
-					console.warn("[CPF-BR] Resposta inesperada ao salvar CPF:", d);
+		XMLHttpRequest.prototype.send = function (body) {
+			const url = this._url || "";
+			if (url.includes("update_profile") || url.includes("frappe.client.set_value")) {
+				const cpf = lerInputCPF() || _cpfCache;
+				console.log("[CPF-BR] Request detectado no XHR:", url, "CPF lido:", cpf || "(vazio)");
+				if (cpf) {
+					try {
+						if (typeof body === "string") {
+							if (body.trim().startsWith("{")) {
+								const obj = JSON.parse(body);
+								obj.cpf_br = cpf;
+								if (url.includes("frappe.client.set_value")) {
+									if (obj.update_dict) {
+										const dict = JSON.parse(obj.update_dict);
+										dict.cpf_br = cpf;
+										obj.update_dict = JSON.stringify(dict);
+									} else {
+										obj.fieldname = obj.fieldname || {};
+										if (typeof obj.fieldname === "string") {
+											const fnObj = JSON.parse(obj.fieldname);
+											fnObj.cpf_br = cpf;
+											obj.fieldname = JSON.stringify(fnObj);
+										} else {
+											obj.fieldname.cpf_br = cpf;
+										}
+									}
+								}
+								body = JSON.stringify(obj);
+								console.log("[CPF-BR] CPF injetado no body JSON do XHR.");
+							} else {
+								const params = new URLSearchParams(body);
+								params.set("cpf_br", cpf);
+								if (url.includes("frappe.client.set_value")) {
+									let dictStr = params.get("update_dict");
+									if (dictStr) {
+										const dict = JSON.parse(dictStr);
+										dict.cpf_br = cpf;
+										params.set("update_dict", JSON.stringify(dict));
+									} else {
+										params.set("fieldname", JSON.stringify({ cpf_br: cpf }));
+									}
+								}
+								body = params.toString();
+								console.log("[CPF-BR] CPF injetado no body URL-encoded do XHR.");
+							}
+						} else if (body instanceof URLSearchParams) {
+							body.set("cpf_br", cpf);
+							if (url.includes("frappe.client.set_value")) {
+								let dictStr = body.get("update_dict");
+								if (dictStr) {
+									const dict = JSON.parse(dictStr);
+									dict.cpf_br = cpf;
+									body.set("update_dict", JSON.stringify(dict));
+								} else {
+									body.set("fieldname", JSON.stringify({ cpf_br: cpf }));
+								}
+							}
+							console.log("[CPF-BR] CPF injetado no body URLSearchParams do XHR.");
+						} else if (body instanceof FormData) {
+							body.set("cpf_br", cpf);
+							if (url.includes("frappe.client.set_value")) {
+								let dictStr = body.get("update_dict");
+								if (dictStr) {
+									const dict = JSON.parse(dictStr);
+									dict.cpf_br = cpf;
+									body.set("update_dict", JSON.stringify(dict));
+								} else {
+									body.set("fieldname", JSON.stringify({ cpf_br: cpf }));
+								}
+							}
+							console.log("[CPF-BR] CPF injetado no body FormData do XHR.");
+						}
+					} catch (e) {
+						console.warn("[CPF-BR] Erro ao injetar CPF no XHR body:", e);
+					}
 				}
-			})
-			.catch(e => console.warn("[CPF-BR] Erro ao salvar CPF:", e));
+			}
+			return originalSend.apply(this, [body]);
+		};
 	}
 
 	/* ── MutationObserver: detecta modal adicionado ao DOM (v-if) ── */
@@ -344,10 +475,10 @@
 	/* ── Inicialização ───────────────────────────────────────────── */
 	function init() {
 		instalarFetchIntercept();
+		instalarXhrIntercept();
 		setupObserver();
 		setupClickListener();
-		setupSaveListener();
-		console.log("[CPF-BR] v5 inicializado. Modal usa v-if (childList observer ativo).");
+		console.log("[CPF-BR] Inicializado. Interceptadores Fetch e XHR ativos.");
 	}
 
 	if (document.readyState === "loading") {
