@@ -29,6 +29,7 @@
 	const ERRO_ID = "cpf_br_erro";
 
 	let _cpfCache = "";
+	let _cpfParaSalvar = ""; // Cache temporário para salvar quando modal fecha
 
 	/* ── Helpers ──────────────────────────────────────────────────────── */
 	function lerInputCPF() {
@@ -216,6 +217,8 @@
 			if (url.includes("frappe.client.set_value")) {
 				const cpf = lerInputCPF();
 				if (cpf) {
+					_cpfParaSalvar = cpf; // Cache antes que modal feche e DOM seja destruído
+					console.log("[CPF-BR] 🔒 CPF cacheado para salvar:", cpf);
 					const resp = await _prev.call(this, input, init);
 					// Após salvar User, salva CPF em chamada separada
 					setTimeout(() => salvarCPFViaAPI(), 300);
@@ -245,8 +248,11 @@
 
 	/* ── Salva CPF via frappe.client.set_value ───────────────────────── */
 	function salvarCPFViaAPI() {
-		const cpf = lerInputCPF();
-		if (!cpf) return;
+		const cpf = _cpfParaSalvar; // Usa valor cacheado (input pode ter sido destruído)
+		if (!cpf) {
+			console.warn("[CPF-BR] Sem CPF em cache para salvar");
+			return;
+		}
 
 		console.log("[CPF-BR] 📤 Salvando CPF via API:", cpf);
 
