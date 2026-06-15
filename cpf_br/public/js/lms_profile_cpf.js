@@ -181,9 +181,11 @@
 			return;
 		}
 		window.__cpfBrFetchOk = true;
+		console.log("[CPF-BR] ⚙️ Instalando fetch interceptor...");
 
 		/* Respeita patch já existente (ex: lms_portal_lock.js) */
 		const _prev = window.fetch;
+		console.log("[CPF-BR] Fetch original capturado:", typeof _prev);
 
 		window.fetch = async function (input, init) {
 			const url = (typeof input === "string" ? input : input?.url) || "";
