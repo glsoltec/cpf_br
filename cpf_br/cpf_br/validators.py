@@ -72,4 +72,21 @@ def validate_cpf_lms(doc, method=None):
     if not _cpf_valido(cpf):
         frappe.throw(_("CPF inválido: {0}").format(cpf), title=_("Validação de CPF"))
 
-    doc.cpf_br = _formatar_cpf(cpf)
+    formatted_cpf = _formatar_cpf(cpf)
+    doc.cpf_br = formatted_cpf
+
+    # [SYNC FIX] Aviso se CPF diferente do User
+    if doc.member:
+        user_cpf = frappe.db.get_value("User", doc.member, "cpf_br")
+        if user_cpf and user_cpf != formatted_cpf:
+            frappe.logger().info(
+                f"[cpf_br] CPF alterado em LMS Enrollment: {doc.name}\n"
+                f"  User: {doc.member}\n"
+                f"  CPF anterior (User): {user_cpf}\n"
+                f"  CPF novo (Enrollment): {formatted_cpf}"
+            )
+            frappe.msgprint(
+                _("⚠️ CPF diferente do usuário.<br>CPF do usuário: <strong>{0}</strong><br>CPF da matrícula: <strong>{1}</strong><br><br>Será sincronizado ao salvar.").format(user_cpf, formatted_cpf),
+                title=_("CPF Alterado"),
+                indicator="yellow"
+            )
