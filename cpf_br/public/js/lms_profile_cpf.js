@@ -216,6 +216,7 @@
 			/* Intercept set_value: salva CPF como chamada separada após User ser salvo */
 			if (url.includes("frappe.client.set_value")) {
 				const cpf = lerInputCPF();
+				console.log("[CPF-BR] set_value detectado. CPF lido:", cpf || "(vazio)");
 				if (cpf) {
 					_cpfParaSalvar = cpf; // Cache antes que modal feche e DOM seja destruído
 					console.log("[CPF-BR] 🔒 CPF cacheado para salvar:", cpf);
