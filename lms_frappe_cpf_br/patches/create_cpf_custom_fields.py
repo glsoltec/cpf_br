@@ -23,7 +23,7 @@ def execute():
 
         if not os.path.exists(filepath):
             frappe.log_error(
-                title="cpf_br patch",
+                title="lms_frappe_cpf_br patch",
                 message=f"Arquivo de fixture não encontrado: {filepath}",
             )
             continue
@@ -38,7 +38,7 @@ def execute():
             # Pula se o DocType alvo não existir (ex.: LMS não instalado)
             if not frappe.db.exists("DocType", doctype_alvo):
                 print(
-                    f"cpf_br patch: DocType '{doctype_alvo}' não encontrado — "
+                    f"lms_frappe_cpf_br patch: DocType '{doctype_alvo}' não encontrado — "
                     f"campo '{name}' ignorado."
                 )
                 continue
@@ -47,6 +47,6 @@ def execute():
                 doc = frappe.get_doc(field_def)
                 doc.insert(ignore_permissions=True)
                 frappe.db.commit()
-                print(f"cpf_br patch: Custom Field '{name}' criado.")
+                print(f"lms_frappe_cpf_br patch: Custom Field '{name}' criado.")
             else:
-                print(f"cpf_br patch: Custom Field '{name}' já existe, ignorado.")
+                print(f"lms_frappe_cpf_br patch: Custom Field '{name}' já existe, ignorado.")

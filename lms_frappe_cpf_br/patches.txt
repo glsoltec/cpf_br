@@ -4,4 +4,4 @@
 [post_model_sync]
 # Patches executados APÓS a sincronização dos DocTypes
 # Cria os Custom Fields de CPF caso os fixtures não rodem (ex.: site já existente)
-cpf_br.patches.create_cpf_custom_fields.execute
+lms_frappe_cpf_br.patches.create_cpf_custom_fields.execute
