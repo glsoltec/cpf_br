@@ -10,6 +10,7 @@ app_license     = "mit"
 # ─────────────────────────────────────────────────────────────────────────────
 after_install = "cpf_br.setup.after_install"
 after_migrate = "cpf_br.setup.after_migrate"
+before_uninstall = "cpf_br.setup.before_uninstall"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures — garante que os Custom Fields sejam versionados e reimportados

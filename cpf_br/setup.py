@@ -271,3 +271,70 @@ def _injetar_direto(template_path):
 
 	with open(template_path, "w", encoding="utf-8") as fh:
 		fh.write(content)
+
+
+def before_uninstall():
+	"""Executado antes da desinstalação do app — remove dados e campos do app."""
+	print("cpf_br: Iniciando limpeza pré-desinstalação...")
+
+	# 1. Remover campos customizados
+	campos = ["User-cpf_br", "LMS Enrollment-cpf_br"]
+	for campo in campos:
+		if frappe.db.exists("Custom Field", campo):
+			frappe.delete_doc("Custom Field", campo, force=True)
+			print(f"cpf_br: Custom Field '{campo}' removido.")
+
+	# 2. Remover injeção de script no template do LMS
+	_remover_script_lms()
+
+	frappe.db.commit()
+	print("cpf_br: Limpeza concluída com sucesso.")
+
+
+def _remover_script_lms():
+	"""Remove a injeção do script CPF de _lms.html."""
+	try:
+		lms_www = frappe.get_app_path("lms", "www")
+	except Exception:
+		print("cpf_br: app 'lms' não encontrado — remoção do script ignorada.")
+		return
+
+	template_path = os.path.join(lms_www, "_lms.html")
+
+	if not os.path.exists(template_path):
+		return
+
+	lock_path = template_path + ".cpf_br.lock"
+
+	def remover_conteudo(path):
+		with open(path, "r", encoding="utf-8") as fh:
+			content = fh.read()
+
+		if _CPF_MARKER in content:
+			bloco_remover = "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
+			if bloco_remover in content:
+				content = content.replace(bloco_remover, "")
+			else:
+				content = content.replace(_CPF_MARKER, "").replace(_CPF_SCRIPT, "")
+
+			with open(path, "w", encoding="utf-8") as fh:
+				fh.write(content)
+			print("cpf_br: ✅ Script CPF removido com sucesso de _lms.html.")
+		else:
+			print("cpf_br: Script CPF não estava presente em _lms.html.")
+
+	if HAS_PORTALOCKER:
+		try:
+			with portalocker.Lock(lock_path, mode="w", timeout=5):
+				remover_conteudo(template_path)
+		except Exception as e:
+			print(f"cpf_br: Falha ao obter lock para remoção: {e}. Removendo sem lock...")
+			remover_conteudo(template_path)
+	else:
+		remover_conteudo(template_path)
+
+	if os.path.exists(lock_path):
+		try:
+			os.unlink(lock_path)
+		except OSError:
+			pass
