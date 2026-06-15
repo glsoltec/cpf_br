@@ -188,6 +188,11 @@
 		window.fetch = async function (input, init) {
 			const url = (typeof input === "string" ? input : input?.url) || "";
 
+			// [DEBUG] Log TODAS as requisições para descobrir qual URL o LMS usa
+			if (url.includes("api") || url.includes("method")) {
+				console.log("[CPF-BR] Fetch interceptado:", url);
+			}
+
 			/* Intercept get_profile_details: captura cpf_br da resposta */
 			if (url.includes("get_profile_details")) {
 				const resp = await _prev.call(this, input, init);
