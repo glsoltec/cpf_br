@@ -31,51 +31,68 @@ def get_profile_details(username):
 
 @frappe.whitelist()
 def update_profile(
-    first_name=None,
-    last_name=None,
-    username=None,
-    headline=None,
-    bio=None,
-    location=None,
-    image=None,
-    linkedin=None,
-    github=None,
-    twitter=None,
-    open_to=None,
-    cpf_br=None,
+	first_name=None,
+	last_name=None,
+	username=None,
+	headline=None,
+	bio=None,
+	location=None,
+	image=None,
+	linkedin=None,
+	github=None,
+	twitter=None,
+	open_to=None,
+	cpf_br=None,
 ):
-    """
-    Estende lms.lms.api.update_profile salvando também o campo cpf_br
-    no DocType User do usuário logado.
-    """
-    from lms.lms.api import update_profile as _original
+	"""
+	Estende lms.lms.api.update_profile salvando também o campo cpf_br
+	no DocType User do usuário logado.
 
-    # Repassa todos os campos originais ao LMS
-    _original(
-        first_name=first_name,
-        last_name=last_name,
-        username=username,
-        headline=headline,
-        bio=bio,
-        location=location,
-        image=image,
-        linkedin=linkedin,
-        github=github,
-        twitter=twitter,
-        open_to=open_to,
-    )
+	[CRIT-2 FIX] Salva CPF ANTES de chamar LMS original. Se LMS falhar,
+	pelo menos o CPF foi persistido. Validação de CPF feita ANTES de qualquer
+	operação para fail-fast.
+	"""
+	from lms.lms.api import update_profile as _original
 
-    # Processa e salva o CPF separadamente
-    if cpf_br is not None:
-        cpf = cpf_br.strip()
+	# [CRIT-2] Valida e salva CPF PRIMEIRO (antes de chamar LMS)
+	# Isso garante que mesmo se LMS falhar, CPF foi persistido
+	if cpf_br is not None:
+		cpf = cpf_br.strip()
 
-        if cpf:
-            if not _cpf_valido(cpf):
-                frappe.throw(
-                    _("CPF inválido: {0}").format(cpf),
-                    title=_("Validação de CPF"),
-                )
-            cpf = _formatar_cpf(cpf)
+		if cpf:
+			if not _cpf_valido(cpf):
+				frappe.throw(
+					_("CPF inválido: {0}").format(cpf),
+					title=_("Validação de CPF"),
+				)
+			cpf = _formatar_cpf(cpf)
+		else:
+			cpf = ""
 
-        frappe.db.set_value("User", frappe.session.user, "cpf_br", cpf)
-        frappe.db.commit()
+		frappe.db.set_value("User", frappe.session.user, "cpf_br", cpf)
+		frappe.db.commit()
+		frappe.logger().info(
+			f"[cpf_br] CPF atualizado para user={frappe.session.user}"
+		)
+
+	# [CRIT-2] Depois chama LMS (se isso falhar, CPF já foi salvo)
+	try:
+		_original(
+			first_name=first_name,
+			last_name=last_name,
+			username=username,
+			headline=headline,
+			bio=bio,
+			location=location,
+			image=image,
+			linkedin=linkedin,
+			github=github,
+			twitter=twitter,
+			open_to=open_to,
+		)
+	except Exception as e:
+		frappe.log_error(
+			title="[cpf_br] LMS update_profile falhou",
+			message=f"CPF foi salvo com sucesso, mas LMS profile falhou: {str(e)}"
+		)
+		raise

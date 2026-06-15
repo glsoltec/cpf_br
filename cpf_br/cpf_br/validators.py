@@ -9,29 +9,33 @@ from frappe import _
 
 
 def _cpf_valido(cpf: str) -> bool:
-    """
-    Valida CPF usando algoritmo oficial.
-    Aceita formatos: '123.456.789-09' ou '12345678909'.
-    Retorna False para sequências inválidas (ex.: 111.111.111-11).
-    """
-    cpf = re.sub(r"\D", "", cpf or "")
+	"""
+	Valida CPF usando algoritmo oficial.
+	Aceita formatos: '123.456.789-09' ou '12345678909'.
+	Retorna False para sequências inválidas (ex.: 111.111.111-11).
 
-    if len(cpf) != 11 or len(set(cpf)) == 1:
-        return False
+	[IMP-4 FIX] Deixa explícito o cálculo d >= 10 ? 0 : d para clareza.
+	"""
+	cpf = re.sub(r"\D", "", cpf or "")
 
-    # Primeiro dígito verificador
-    soma = sum(int(cpf[i]) * (10 - i) for i in range(9))
-    d1 = (soma * 10 % 11) % 10
-    if d1 != int(cpf[9]):
-        return False
+	if len(cpf) != 11 or len(set(cpf)) == 1:
+		return False
 
-    # Segundo dígito verificador
-    soma = sum(int(cpf[i]) * (11 - i) for i in range(10))
-    d2 = (soma * 10 % 11) % 10
-    if d2 != int(cpf[10]):
-        return False
+	# Primeiro dígito verificador
+	soma = sum(int(cpf[i]) * (10 - i) for i in range(9))
+	d1 = (soma * 10) % 11
+	d1 = 0 if d1 >= 10 else d1  # [IMP-4] Deixa explícito
+	if d1 != int(cpf[9]):
+		return False
 
-    return True
+	# Segundo dígito verificador
+	soma = sum(int(cpf[i]) * (11 - i) for i in range(10))
+	d2 = (soma * 10) % 11
+	d2 = 0 if d2 >= 10 else d2  # [IMP-4] Deixa explícito
+	if d2 != int(cpf[10]):
+		return False
+
+	return True
 
 
 def _formatar_cpf(cpf: str) -> str:

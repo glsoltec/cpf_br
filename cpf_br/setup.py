@@ -8,12 +8,28 @@ O campo LMS Course Enrollment só é criado se o DocType existir no banco
 Também injeta o script de CPF diretamente no template _lms.html do LMS,
 pois esse template não estende base.html e portanto o hook web_include_js
 do Frappe não funciona para páginas do LMS SPA (Vue 3 + Vite).
+
+CRIT-1 FIX: File locking implementado para evitar race condition em bench migrate paralelo
 """
 
 import os
+import sys
+import time
 
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+# File locking: usar portalocker se disponível (cross-platform), senão fcntl (Unix)
+try:
+	import portalocker
+	HAS_PORTALOCKER = True
+except ImportError:
+	HAS_PORTALOCKER = False
+	try:
+		import fcntl
+		HAS_FCNTL = True
+	except ImportError:
+		HAS_FCNTL = False
 
 
 # ─── Definição dos campos ─────────────────────────────────────────────────────
@@ -104,51 +120,153 @@ def _criar_campos():
 
 
 def _injetar_script_lms():
-    """
-    Injeta o script de CPF diretamente no template _lms.html do app lms.
+	"""
+	Injeta o script de CPF diretamente no template _lms.html do app lms.
 
-    O template _lms.html é gerado pelo Vite (frontend/index.html) e NÃO
-    estende base.html do Frappe — portanto o hook web_include_js não é
-    processado para páginas do LMS SPA. A injeção direta no template é a
-    única forma confiável de carregar scripts customizados nesse contexto.
+	O template _lms.html é gerado pelo Vite (frontend/index.html) e NÃO
+	estende base.html do Frappe — portanto o hook web_include_js não é
+	processado para páginas do LMS SPA. A injeção direta no template é a
+	única forma confiável de carregar scripts customizados nesse contexto.
 
-    A injeção é idempotente: o marcador _CPF_MARKER evita duplicatas.
-    O template pode ser regenerado por `bench build --app lms`; nesse caso,
-    basta rodar `bench migrate` novamente para re-injetar.
-    """
-    try:
-        lms_www = frappe.get_app_path("lms", "www")
-    except Exception:
-        print("cpf_br: app 'lms' não encontrado — injeção no _lms.html ignorada.")
-        return
+	A injeção é idempotente: o marcador _CPF_MARKER evita duplicatas.
+	O template pode ser regenerado por `bench build --app lms`; nesse caso,
+	basta rodar `bench migrate` novamente para re-injetar.
 
-    template_path = os.path.join(lms_www, "_lms.html")
+	[CRIT-1 FIX] Implementa file locking para evitar race condition em
+	múltiplos workers executando bench migrate simultaneamente.
+	"""
+	try:
+		lms_www = frappe.get_app_path("lms", "www")
+	except Exception:
+		print("cpf_br: app 'lms' não encontrado — injeção no _lms.html ignorada.")
+		return
 
-    if not os.path.exists(template_path):
-        print(
-            "cpf_br: _lms.html não encontrado em %s — execute "
-            "`bench build --app lms` primeiro, depois `bench migrate`." % template_path
-        )
-        return
+	template_path = os.path.join(lms_www, "_lms.html")
 
-    with open(template_path, "r", encoding="utf-8") as fh:
-        content = fh.read()
+	if not os.path.exists(template_path):
+		print(
+			"cpf_br: _lms.html não encontrado em %s — execute "
+			"`bench build --app lms` primeiro, depois `bench migrate`." % template_path
+		)
+		return
 
-    if _CPF_MARKER in content:
-        print("cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
-        return
+	lock_path = template_path + ".cpf_br.lock"
 
-    # Injeta antes de </body>; se não houver </body> injeta no final
-    if "</body>" in content:
-        content = content.replace(
-            "</body>",
-            "\n%s\n%s\n</body>" % (_CPF_MARKER, _CPF_SCRIPT),
-            1,
-        )
-    else:
-        content = content + "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
+	# ─── Acquire lock ───────────────────────────────────────────────────────
+	if HAS_PORTALOCKER:
+		_injetar_com_portalocker(template_path, lock_path)
+	elif HAS_FCNTL:
+		_injetar_com_fcntl(template_path, lock_path)
+	else:
+		# Fallback: sem lock (risco de race condition em produção)
+		print("cpf_br: ⚠️ Aviso: portalocker/fcntl não disponível. "
+			  "Usando fallback sem lock (risco em bench migrate paralelo).")
+		_injetar_direto(template_path)
 
-    with open(template_path, "w", encoding="utf-8") as fh:
-        fh.write(content)
 
-    print("cpf_br: ✅ Script CPF injetado com sucesso em _lms.html.")
+def _injetar_com_portalocker(template_path, lock_path):
+	"""
+	[CRIT-1 FIX] Injeta com portalocker (cross-platform, Windows + Unix).
+	"""
+	import portalocker
+
+	try:
+		with portalocker.Lock(lock_path, mode="w", timeout=5) as lock_fh:
+			# Relê dentro do lock (outro processo pode ter modificado)
+			with open(template_path, "r", encoding="utf-8") as fh:
+				content = fh.read()
+
+			if _CPF_MARKER in content:
+				print("cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
+				return
+
+			# Injeta antes de </body>
+			if "</body>" in content:
+				content = content.replace(
+					"</body>",
+					"\n%s\n%s\n</body>" % (_CPF_MARKER, _CPF_SCRIPT),
+					1,
+				)
+			else:
+				content = content + "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
+
+			with open(template_path, "w", encoding="utf-8") as fh:
+				fh.write(content)
+
+			print("cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (portalocker).")
+	except portalocker.LockException:
+		frappe.log_error(
+			title="cpf_br lock timeout",
+			message=f"Não conseguiu adquirir lock em {lock_path} após 5s. "
+					"Outro processo pode estar modificando _lms.html."
+		)
+		print("cpf_br: ❌ Lock timeout — outra instância pode estar injetando. Abortando.")
+
+
+def _injetar_com_fcntl(template_path, lock_path):
+	"""
+	[CRIT-1 FIX] Injeta com fcntl (Unix/Linux only).
+	"""
+	try:
+		lock_fh = open(lock_path, "w")
+		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)  # Non-blocking
+	except (IOError, BlockingIOError):
+		# Lock em uso por outro processo — espera
+		print("cpf_br: Lock em uso, aguardando...")
+		lock_fh = open(lock_path, "w")
+		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)  # Blocking
+
+	try:
+		# Relê dentro do lock
+		with open(template_path, "r", encoding="utf-8") as fh:
+			content = fh.read()
+
+		if _CPF_MARKER in content:
+			print("cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
+			return
+
+		if "</body>" in content:
+			content = content.replace(
+				"</body>",
+				"\n%s\n%s\n</body>" % (_CPF_MARKER, _CPF_SCRIPT),
+				1,
+			)
+		else:
+			content = content + "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
+
+		with open(template_path, "w", encoding="utf-8") as fh:
+			fh.write(content)
+
+		print("cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (fcntl).")
+	finally:
+		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
+		lock_fh.close()
+		try:
+			os.unlink(lock_path)
+		except OSError:
+			pass
+
+
+def _injetar_direto(template_path):
+	"""
+	Injeta sem lock (fallback se portalocker/fcntl não estão disponíveis).
+	⚠️ Risco de race condition em bench migrate paralelo.
+	"""
+	with open(template_path, "r", encoding="utf-8") as fh:
+		content = fh.read()
+
+	if _CPF_MARKER in content:
+		print("cpf_br: Script CPF já presente em _lms.html — nenhuma alteração.")
+		return
+
+	if "</body>" in content:
+		content = content.replace(
+			"</body>",
+			"\n%s\n%s\n</body>" % (_CPF_MARKER, _CPF_SCRIPT),
+			1,
+		)
+	else:
+		content = content + "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
+
+	with open(template_path, "w", encoding="utf-8") as fh:
+		fh.write(content)

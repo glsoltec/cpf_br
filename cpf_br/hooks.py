@@ -57,14 +57,21 @@ override_whitelisted_methods = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# JS injetado nas páginas web — DUAS estratégias simultâneas
+# JS injetado nas páginas web — TRÊS estratégias simultâneas
 #
 # 1. web_include_js — funciona se o template estender base.html (Frappe padrão)
+#    [IMP-1] cpf_utils.js PRIMEIRO (utilitários compartilhados)
+#    Depois scripts que dependem de window.CpfUtils
+#
 # 2. update_website_context — adiciona programaticamente ao contexto web
 #    (mesma finalidade, mas via Python; cobre casos onde hooks.py não é lido)
+#
 # 3. setup._injetar_script_lms() — injeta direto em _lms.html no after_migrate
 #    (método definitivo: o template do LMS SPA não estende base.html)
 # ─────────────────────────────────────────────────────────────────────────────
-web_include_js = ["/assets/cpf_br/js/lms_profile_cpf.js"]
+web_include_js = [
+	"/assets/cpf_br/js/cpf_utils.js",        # [IMP-1] 1º: utilitários compartilhados
+	"/assets/cpf_br/js/lms_profile_cpf.js",  # 2º: script que usa CpfUtils
+]
 
 update_website_context = "cpf_br.website_utils.inject_cpf_js"
