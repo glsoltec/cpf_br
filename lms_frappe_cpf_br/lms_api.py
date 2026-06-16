@@ -38,8 +38,19 @@ def update_profile(*args, **kwargs):
 	[CRIT-2 FIX] Salva CPF ANTES de chamar LMS original. Se LMS falhar,
 	pelo menos o CPF foi persistido. Validação de CPF feita ANTES de qualquer
 	operação para fail-fast.
+
+	[SECURITY] Sempre usa o usuário logado — nunca permite alterar CPF alheio.
 	"""
 	from lms.lms.api import update_profile as _original
+
+	# SEGURANÇA: Validação de permissão (defense-in-depth)
+	# Sempre opera no usuário logado, nunca em outro
+	current_user = frappe.session.user
+	if kwargs.get("user") and kwargs["user"] != current_user:
+		frappe.throw(
+			_("Você só pode alterar seu próprio perfil."),
+			title=_("Permissão Negada"),
+		)
 
 	# Extrai o cpf_br se enviado no payload
 	cpf_br = kwargs.pop("cpf_br", None)
