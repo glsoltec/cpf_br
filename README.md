@@ -85,48 +85,7 @@ cpf_br v1.0.0
 
 ## 🚀 Instalação
 
-### 1. Nova Instância
-
-```bash
-# Entrar no diretório do bench
-cd /home/frappe/frappe-bench
-
-# Baixar app
-bench get-app cpf_br https://github.com/glsoltec/cpf_br --branch version-16
-
-# Instalar dependências
-bench pip install portalocker>=2.7.0
-
-# Instalar app no site
-bench install-app cpf_br --site seu-site
-
-# Executar migrate
-bench migrate --site seu-site
-
-# Reiniciar workers
-bench restart
-```
-
-### 2. Instância Existente
-
-```bash
-# Backup IMPORTANTE
-bench backup --site seu-site
-
-# Atualizar app
-cd apps/cpf_br
-git pull origin version-16
-cd ../..
-
-# Instalar dependências
-bench pip install portalocker>=2.7.0
-
-# Migrate
-bench migrate --site seu-site
-
-# Restart
-bench restart
-```
+Consulte as instruções de instalação e atualização detalhadas no arquivo [DEPLOY.md](DEPLOY.md).
 
 ---
 
@@ -289,16 +248,7 @@ web_include_js = [
 
 ## 🧪 Testes
 
-### Rodar Testes Unitários
-
-```bash
-# Via Frappe bench
-bench --site seu-site execute cpf_br.tests.test_validators
-
-# Via pytest
-cd /home/frappe/frappe-bench
-python -m pytest apps/cpf_br/cpf_br/tests/test_validators.py -v
-```
+Consulte o arquivo [DEPLOY.md](DEPLOY.md) para instruções sobre como executar os testes unitários.
 
 ### Cobertura
 
@@ -320,30 +270,6 @@ Cobertura: 85%
 
 ---
 
-## 🔍 Validação Pós-Instalação
-
-```bash
-# 1. Verificar campos criados
-bench --site seu-site execute "
-import frappe
-print('✅ User.cpf_br:', frappe.get_doc('Custom Field', 'User-cpf_br').fieldname)
-print('✅ LMS Enrollment.cpf_br:', frappe.get_doc('Custom Field', 'LMS Enrollment-cpf_br').fieldname)
-"
-
-# 2. Verificar portalocker
-python -c "import portalocker; print('✅ portalocker OK')"
-
-# 3. Rodar testes
-bench --site seu-site execute cpf_br.tests.test_validators
-
-# 4. Testar no Desk
-# Abrir: https://seu-site/app/user
-# Criar novo usuário, preencher CPF com: 111.444.777-35
-# Salvar e verificar se validou e formatou
-```
-
----
-
 ## 📚 Documentação
 
 | Documento | Descrição |
@@ -351,51 +277,6 @@ bench --site seu-site execute cpf_br.tests.test_validators
 | [DEPLOY.md](DEPLOY.md) | Guia completo de deploy e troubleshooting |
 | [CORREÇÕES_IMPLEMENTADAS.md](CORREÇÕES_IMPLEMENTADAS.md) | Detalhes técnicos de bugs corrigidos |
 | [SUMÁRIO_DE_ALTERAÇÕES.md](SUMÁRIO_DE_ALTERAÇÕES.md) | Resumo visual de todas as mudanças |
-
----
-
-## 🐛 Troubleshooting
-
-### Erro: "ModuleNotFoundError: No module named 'portalocker'"
-
-```bash
-bench pip install portalocker>=2.7.0
-bench migrate --site seu-site
-```
-
-### Custom Field não foi criado
-
-```bash
-# Recriação manual
-bench --site seu-site execute "
-from cpf_br.setup import after_install
-after_install()
-"
-```
-
-### CPF não valida em cliente
-
-```bash
-# Limpar cache
-bench clear-cache --site seu-site
-# Recarregar página: Ctrl+F5
-```
-
-### Campo CPF não aparece em LMS
-
-```bash
-# Garantir que LMS foi buildado
-bench build --app lms
-
-# Rodar migrate
-bench migrate --site seu-site
-
-# Se ainda não aparecer, reinjetar script
-bench --site seu-site execute "
-from cpf_br.setup import _injetar_script_lms
-_injetar_script_lms()
-"
-```
 
 ---
 

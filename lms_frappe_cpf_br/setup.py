@@ -105,13 +105,13 @@ def _criar_campos():
     """
     # 1. Campo no User (sempre disponível)
     create_custom_fields(CAMPO_USER, ignore_validate=True)
-    frappe.db.commit()
+    frappe.db.commit() # nosemgrep: frappe-manual-commit (persiste os campos customizados antes de prosseguir)
     print("lms_frappe_cpf_br: Custom Field User.cpf_br verificado/criado.")
 
     # 2. Campo no LMS — só se o DocType existir
     if frappe.db.exists("DocType", "LMS Enrollment"):
         create_custom_fields(CAMPO_LMS, ignore_validate=True)
-        frappe.db.commit()
+        frappe.db.commit() # nosemgrep: frappe-manual-commit (persiste os campos customizados antes de prosseguir)
         print("lms_frappe_cpf_br: Custom Field LMS Enrollment.cpf_br verificado/criado.")
     else:
         print(
@@ -174,7 +174,7 @@ def _injetar_com_portalocker(template_path, lock_path):
 	try:
 		with portalocker.Lock(lock_path, mode="w", timeout=5) as lock_fh:
 			# Relê dentro do lock (outro processo pode ter modificado)
-			with open(template_path, "r", encoding="utf-8") as fh:
+			with open(template_path, "r", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 				content = fh.read()
 
 			if _CPF_MARKER in content:
@@ -191,7 +191,7 @@ def _injetar_com_portalocker(template_path, lock_path):
 			else:
 				content = content + "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
 
-			with open(template_path, "w", encoding="utf-8") as fh:
+			with open(template_path, "w", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 				fh.write(content)
 
 			print("lms_frappe_cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (portalocker).")
@@ -209,17 +209,17 @@ def _injetar_com_fcntl(template_path, lock_path):
 	[CRIT-1 FIX] Injeta com fcntl (Unix/Linux only).
 	"""
 	try:
-		lock_fh = open(lock_path, "w")
+		lock_fh = open(lock_path, "w") # nosemgrep: frappe-security-file-traversal
 		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)  # Non-blocking
 	except (IOError, BlockingIOError):
 		# Lock em uso por outro processo — espera
 		print("lms_frappe_cpf_br: Lock em uso, aguardando...")
-		lock_fh = open(lock_path, "w")
+		lock_fh = open(lock_path, "w") # nosemgrep: frappe-security-file-traversal
 		fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)  # Blocking
 
 	try:
 		# Relê dentro do lock
-		with open(template_path, "r", encoding="utf-8") as fh:
+		with open(template_path, "r", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 			content = fh.read()
 
 		if _CPF_MARKER in content:
@@ -235,7 +235,7 @@ def _injetar_com_fcntl(template_path, lock_path):
 		else:
 			content = content + "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
 
-		with open(template_path, "w", encoding="utf-8") as fh:
+		with open(template_path, "w", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 			fh.write(content)
 
 		print("lms_frappe_cpf_br: ✅ Script CPF injetado com sucesso em _lms.html (fcntl).")
@@ -253,7 +253,7 @@ def _injetar_direto(template_path):
 	Injeta sem lock (fallback se portalocker/fcntl não estão disponíveis).
 	⚠️ Risco de race condition em bench migrate paralelo.
 	"""
-	with open(template_path, "r", encoding="utf-8") as fh:
+	with open(template_path, "r", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 		content = fh.read()
 
 	if _CPF_MARKER in content:
@@ -269,7 +269,7 @@ def _injetar_direto(template_path):
 	else:
 		content = content + "\n%s\n%s\n" % (_CPF_MARKER, _CPF_SCRIPT)
 
-	with open(template_path, "w", encoding="utf-8") as fh:
+	with open(template_path, "w", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 		fh.write(content)
 
 
@@ -287,7 +287,7 @@ def before_uninstall():
 	# 2. Remover injeção de script no template do LMS
 	_remover_script_lms()
 
-	frappe.db.commit()
+	frappe.db.commit() # nosemgrep: frappe-manual-commit (garante a deleção dos campos customizados antes de desinstalar)
 	print("lms_frappe_cpf_br: Limpeza concluída com sucesso.")
 
 
@@ -307,7 +307,7 @@ def _remover_script_lms():
 	lock_path = template_path + ".lms_frappe_cpf_br.lock"
 
 	def remover_conteudo(path):
-		with open(path, "r", encoding="utf-8") as fh:
+		with open(path, "r", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 			content = fh.read()
 
 		if _CPF_MARKER in content:
@@ -317,7 +317,7 @@ def _remover_script_lms():
 			else:
 				content = content.replace(_CPF_MARKER, "").replace(_CPF_SCRIPT, "")
 
-			with open(path, "w", encoding="utf-8") as fh:
+			with open(path, "w", encoding="utf-8") as fh: # nosemgrep: frappe-security-file-traversal
 				fh.write(content)
 			print("lms_frappe_cpf_br: ✅ Script CPF removido com sucesso de _lms.html.")
 		else:

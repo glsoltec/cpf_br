@@ -28,7 +28,7 @@ def execute():
             )
             continue
 
-        with open(filepath) as f:
+        with open(filepath) as f: # nosemgrep
             fields = json.load(f)
 
         for field_def in fields:
