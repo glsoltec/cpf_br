@@ -26,7 +26,7 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### ✨ Novo (Infraestrutura)
 
-- **[CRIT-1] File Locking em `bench migrate`** — Previne race condition com portalocker
+- **[CRIT-1] File Locking em migrações do bench (bench-migrate)** — Previne race condition com portalocker
 - **[CRIT-2] Sincronização Fail-Fast** — CPF salvo ANTES de chamar LMS
 - **[CRIT-3] Guard Fetch Interceptor** — Previne memory leak em hot reload do SPA
 - **[IMP-1] Módulo cpf_utils.js** — Centraliza validação, formatação e máscara de CPF

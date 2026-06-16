@@ -22,11 +22,12 @@ git clone https://github.com/glsoltec/lms_frappe_cpf_br.git
 cd lms_frappe_cpf_br
 
 # Instale em seu bench (seu ERPNext local)
-bench get-app . lms_frappe_cpf_br
-bench install-app lms_frappe_cpf_br
+# (Copie o repositório para a pasta local apps/lms_frappe_cpf_br)
+bench setup requirements --app lms_frappe_cpf_br
+bench --site [seu-site] install-app lms_frappe_cpf_br
 
 # Execute migração
-bench migrate
+bench --site [seu-site] migrate
 
 # Limpe cache
 bench clear-cache --site [seu-site]

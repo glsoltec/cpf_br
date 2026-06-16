@@ -23,16 +23,17 @@
 cd /home/frappe/frappe-bench
 
 # Baixar app
-bench get-app cpf_br https://github.com/glsoltec/cpf_br --branch version-16
+git clone https://github.com/glsoltec/cpf_br apps/cpf_br --branch version-16
 
 # Instalar dependências
+bench setup requirements --app cpf_br
 bench pip install portalocker>=2.7.0
 
 # Instalar app no site
-bench install-app cpf_br --site [seu-site]
+bench --site [seu-site] install-app cpf_br
 
 # Executar migrate (ativa file locking)
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 
 # Verificar logs
 bench log -n 20 | grep "cpf_br"
@@ -65,7 +66,7 @@ cd /home/frappe/frappe-bench
 bench pip install portalocker>=2.7.0
 
 # Migrate (ativa novo código)
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 
 # Reiniciar workers (IMPORTANTE)
 bench restart
@@ -153,10 +154,10 @@ OK
 ```bash
 # Simular 2 migrations simultâneas
 # Terminal 1:
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 
 # Terminal 2 (logo após):
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 
 # Ambas devem completar sem erro "lock timeout"
 # Logs devem mostrar:
@@ -185,7 +186,7 @@ ls -lh /home/frappe/frappe-bench/public/assets/cpf_br/js/
 **Solução:**
 ```bash
 bench pip install portalocker>=2.7.0
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 ```
 
 ### ❌ Problema: Custom Field não criado
@@ -199,7 +200,7 @@ after_install()
 "
 
 # Ou rodar migrate novamente
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 ```
 
 ### ❌ Problema: "_lms.html não encontrado"
@@ -210,7 +211,7 @@ bench migrate --site [seu-site]
 bench build --app lms
 
 # Depois migrate
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 ```
 
 ### ❌ Problema: Campo CPF não aparece em Edit Profile (LMS Web)
@@ -254,7 +255,7 @@ git checkout [tag-ou-hash-anterior]
 bench restore /path/to/backup.sql.gz
 
 # Migrate para estado anterior
-bench migrate --site [seu-site]
+bench --site [seu-site] migrate
 
 # Restart
 bench restart
@@ -336,7 +337,7 @@ Configure HTTPS/TLS em seu servidor web (Nginx/Apache) ou proxy reverso (Traefik
 
 ### 🐛 Corrigido
 
-- Race condition em `bench migrate` paralelo
+- Race condition em migrações paralelas do bench (bench-migrate)
 - Inconsistência CPF/LMS em update_profile
 - Memory leak em reload de SPA
 - Acoplamento CSS em seletores
