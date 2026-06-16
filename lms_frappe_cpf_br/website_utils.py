@@ -24,6 +24,11 @@ def inject_cpf_js(context):
     como camada extra para páginas Frappe convencionais e futuras versões
     do LMS que possam adotar base.html.
     """
+    # Otimização: Só injeta o script de perfil CPF se a rota atual pertencer ao LMS
+    path = context.get("path") or ""
+    if not path.startswith("lms") and "lms" not in path:
+        return
+
     if not isinstance(context.get("web_include_js"), list):
         context["web_include_js"] = []
 

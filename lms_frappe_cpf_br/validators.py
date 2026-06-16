@@ -92,3 +92,16 @@ def validate_cpf_lms(doc, method=None):
                 title=_("CPF Alterado"),
                 indicator="yellow"
             )
+
+
+def sync_cpf_enrollment_to_user(doc, method=None):
+	"""Sincroniza o CPF da matrícula de volta para o User no salvamento (on_update)."""
+	if not doc.member or not doc.cpf_br:
+		return
+
+	user_cpf = frappe.db.get_value("User", doc.member, "cpf_br")
+	if user_cpf != doc.cpf_br:
+		frappe.db.set_value("User", doc.member, "cpf_br", doc.cpf_br)
+		frappe.logger().info(
+			f"[cpf_br] CPF sincronizado para o usuário {doc.member}: {doc.cpf_br}"
+		)

@@ -46,34 +46,4 @@ frappe.ui.form.on("LMS Enrollment", {
 			});
 		}
 	},
-
-	after_save: function (frm) {
-		// Sincronizar CPF de volta para o User se foi alterado
-		if (!frm.doc.member || !frm.doc.cpf_br) return;
-
-		frappe.db.get_value("User", frm.doc.member, "cpf_br", function (data) {
-			const userCpf = data && data.cpf_br ? data.cpf_br : null;
-			const enrollmentCpf = frm.doc.cpf_br;
-
-			if (userCpf !== enrollmentCpf) {
-				frappe.call({
-					method: "frappe.client.set_value",
-					args: {
-						doctype: "User",
-						name: frm.doc.member,
-						fieldname: { cpf_br: enrollmentCpf },
-					},
-					callback: function (r) {
-						if (r.message) {
-							frappe.msgprint({
-								title: __("CPF Sincronizado"),
-								indicator: "green",
-								message: __("CPF atualizado no perfil do usuário: <strong>{0}</strong>", [enrollmentCpf]),
-							});
-						}
-					},
-				});
-			}
-		});
-	},
 });

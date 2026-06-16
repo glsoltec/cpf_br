@@ -46,6 +46,7 @@ doc_events = {
     },
     "LMS Enrollment": {
         "validate": "lms_frappe_cpf_br.validators.validate_cpf_lms",
+        "on_update": "lms_frappe_cpf_br.validators.sync_cpf_enrollment_to_user",
     },
 }
 

@@ -48,13 +48,22 @@ def get_profile_details(username: str) -> Dict[str, Any]:
 	# Chamada à função original do LMS
 	profile = _original(username)
 
-	# Injeta o CPF do DocType User no retorno
-	user_cpf: Optional[str] = frappe.db.get_value(
+	# SEGURANÇA (LGPD): Só expõe o CPF se for o próprio usuário autenticado ou System Manager
+	user_info = frappe.db.get_value(
 		"User",
 		{"username": username},
-		"cpf_br",
+		["name", "cpf_br"],
+		as_dict=True
 	)
-	profile["cpf_br"] = user_cpf or ""
+	if user_info:
+		target_user = user_info.get("name")
+		user_cpf = user_info.get("cpf_br")
+		if target_user == frappe.session.user or "System Manager" in frappe.get_roles():
+			profile["cpf_br"] = user_cpf or ""
+		else:
+			profile["cpf_br"] = ""
+	else:
+		profile["cpf_br"] = ""
 
 	return profile
 

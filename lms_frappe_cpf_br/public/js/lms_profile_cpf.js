@@ -454,9 +454,16 @@
 		const cpf = obterCPF();
 		if (!cpf) return;
 
+		// SEGURANÇA: Usa o username da URL ou da sessão do Frappe (se houver), nunca fallback para "administrator"
+		const username = usernameFromURL() || window.frappe?.session?.user;
+		if (!username) {
+			console.warn("[CPF-BR] Não foi possível determinar o usuário logado para salvar o CPF.");
+			return;
+		}
+
 		const params = new URLSearchParams({
 			doctype: "User",
-			name: window.frappe?.session?.user || "administrator",
+			name: username,
 			fieldname: JSON.stringify({ cpf_br: cpf })
 		});
 
